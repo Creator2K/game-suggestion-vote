@@ -66,7 +66,20 @@ npx wrangler login     # 只需一次，浏览器里授权
 npx wrangler deploy
 ```
 
-部署完会给你一个 `https://<名字>.<你的子域>.workers.dev` 地址。绑自己的域名在 Cloudflare 后台 Workers 那一页加 Custom Domain。
+部署完会给你一个 `https://<名字>.<你的子域>.workers.dev` 地址。
+
+**绑自己的域名**：域名交给 Cloudflare 托管（NS 指过去、面板里变成 Active）之后，把域名写进 `wrangler.jsonc`：
+
+```jsonc
+"routes": [
+  { "pattern": "你的域名.com", "custom_domain": true }
+],
+"workers_dev": true,
+```
+
+`custom_domain: true` 会让 Cloudflare 自动建 DNS 记录和证书，根域名也支持。`www` 要单独加一条。`workers_dev: true` 是保留原来那个 workers.dev 地址当备用入口——写了 `routes` 之后 wrangler 会默认把它关掉。
+
+**写在配置里的理由**：只在面板上加 Custom Domain 的话，`wrangler delete` 删 Worker 时会连域名一起删掉，重新 deploy 不会自己长回来。写进 `routes` 就每次 deploy 都保证它在。域名和 `workers_dev` 都写在配置里之后，别人加在面板上的其他域名会被这次 deploy 接管，所以要么都写配置、要么都走面板，别混着来。
 
 没装 wrangler 也没关系，`npx` 会临时取一份；也可以 `npm run worker:deploy`，效果一样。
 
@@ -101,7 +114,7 @@ curl -X POST https://<你的地址>/api/admin/force-reset \
 
 **密码哈希的迭代次数**：`wrangler.jsonc` 里的 `PBKDF2_ITERATIONS` 默认 100000。这是给免费计划调过的值——实测 DO 里的调用不受 Worker 那 10ms CPU 限制，跑得动。如果哪天登录开始报 CPU 超限，把它调到 `50000` 或 `25000` 再部署。次数写在哈希串里，改这个不会让已有密码失效（代价是已有密码仍按老次数校验）。
 
-**想从头开始**：删掉 Worker 再部署，Durable Object 的存储会跟着清空。
+**想从头开始**：删掉 Worker 再部署，Durable Object 的存储会跟着清空。绑在 `routes` 里的自定义域名会在重新部署时自动回来。
 
 ```bash
 npx wrangler delete --force && npx wrangler deploy

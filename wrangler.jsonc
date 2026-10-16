@@ -45,6 +45,18 @@
     "binding": "AI"
   },
 
+  // 自定义域名。写在这里，每次 deploy 都会保证它在；
+  // 只在面板上加的话，删掉 Worker 就一起没了（踩过这个坑）。
+  // 要加别的域名（比如 www）就往这个数组里加一条，再 deploy。
+  "routes": [
+    { "pattern": "xxidle.vip", "custom_domain": true }
+  ],
+
+  // 有 routes 时 wrangler 会默认关掉 workers.dev，这里显式打开：
+  // 两个地址都通，自定义域名万一出问题还有个备用入口。
+  // 不想保留就删掉这行（下次 deploy 起停用）。
+  "workers_dev": true,
+
   "triggers": {
     "crons": ["0 3 * * *"]
   }
