@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>封禁名单 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">封禁名单</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="whoami"></span>
+  </header>
+
+  <div class="admin__body">
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">新增封禁</h2>
+      </div>
+      <div class="px-panel">
+        <div class="form-grid">
+          <label class="px-label">
+            <span>类型</span>
+            <select class="px-select" id="kind">
+              <option value="email">邮箱</option>
+              <option value="ip">IP 地址</option>
+            </select>
+          </label>
+          <label class="px-label">
+            <span>内容</span>
+            <input class="px-input" type="text" id="value" maxlength="100" placeholder="邮箱或 IP">
+          </label>
+          <label class="px-label">
+            <span>理由（可选）</span>
+            <input class="px-input" type="text" id="reason" maxlength="100" placeholder="例如：批量刷票">
+          </label>
+        </div>
+        <button class="px-btn px-btn--danger" type="button" id="add-btn">加入封禁名单</button>
+        <div class="fs1 muted mt2">
+          封禁邮箱会阻止该邮箱提交建议和投票；封禁 IP 会阻止该网络地址的所有写操作。
+          已有的投票不会被自动删除，需要到「投票明细」里清理。
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">当前名单</h2>
+        <span class="px-badge px-badge--muted" id="count">0</span>
+      </div>
+      <div class="table-wrap">
+        <table class="px-table admin-table">
+          <thead>
+            <tr>
+              <th style="width:80px">类型</th>
+              <th>内容</th>
+              <th style="width:240px">理由</th>
+              <th style="width:130px">加入时间</th>
+              <th style="width:90px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/bans.js"></script>
+</body>
+</html>

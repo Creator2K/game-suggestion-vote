@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> head}}
+<title>投票榜 · {{gameName}}</title>
+</head>
+<body>
+{{> topbar}}
+
+<main class="wrap page">
+  <h1 class="page__title">投票榜</h1>
+  <p class="page__lead">
+    票数高的建议会优先进入开发计划。每条建议每个邮箱只能投一票，但你可以给很多条建议投票。
+  </p>
+
+  <div id="boot" hidden
+       data-categories="{{categoriesJson}}"
+       data-vote-open="{{voteOpen}}"
+       data-rank-mode="{{voteRankMode}}"></div>
+
+  <div id="closed-box" class="notice mb4" hidden>
+    <span class="notice__mark" aria-hidden="true">【暂停】</span>
+    <span>投票暂时关闭了，请稍后再来。</span>
+  </div>
+
+  <!-- ============================ 身份栏 ============================ -->
+  <section class="px-panel px-panel--tight mb4" id="id-panel">
+    <div id="id-none">
+      <div class="identity">
+        <label class="px-label identity__field">
+          <span>你的邮箱</span>
+          <input class="px-input" type="email" id="id-email" maxlength="254"
+                 autocomplete="email" placeholder="填一次就好，之后浏览器会记住">
+        </label>
+        <label class="px-label identity__field" id="id-nick-wrap" hidden>
+          <span>取个昵称（这个邮箱是第一次来）</span>
+          <input class="px-input" type="text" id="id-nick" maxlength="16"
+                 autocomplete="nickname" placeholder="2~16 个字，全局唯一">
+        </label>
+        <button class="px-btn px-btn--primary" type="button" id="id-go">确认身份</button>
+      </div>
+      <span class="px-hint">
+        不验证邮箱、不发邮件。填了就能投，但同一个邮箱对同一条建议只能投一次。
+      </span>
+    </div>
+
+    <div id="id-ready" class="identity" hidden>
+      <div class="identity__state" style="flex:1">
+        <span class="muted fs1">当前身份</span>
+        <span class="identity__who" id="id-who"></span>
+        <span class="px-badge px-badge--muted" id="id-voted-count"></span>
+      </div>
+      <button class="px-btn px-btn--ghost" type="button" id="id-change">更换邮箱</button>
+    </div>
+  </section>
+
+  <!-- ============================ 筛选 ============================ -->
+  <div class="filterbar">
+    <div class="filterbar__search">
+      <input class="px-input" type="search" id="q" placeholder="搜标题或内容…" maxlength="60">
+    </div>
+    <div class="row">
+      <button class="px-btn px-btn--sm" type="button" id="sort-btn" data-sort="">按票数排</button>
+    </div>
+  </div>
+
+  <div class="chips mb4" id="chips"></div>
+
+  <!-- ============================ 列表 ============================ -->
+  <div class="vote-list" id="list"></div>
+  <div class="pager" id="pager"></div>
+</main>
+
+{{> footer}}
+
+<script src="/js/common.js"></script>
+<script src="/js/vote.js"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> head}}
+<title>提交建议 · {{gameName}}</title>
+</head>
+<body>
+{{> topbar}}
+
+<main class="wrap page">
+  <h1 class="page__title">提交一条建议</h1>
+  <p class="page__lead">
+    说清楚「你遇到什么问题」和「你希望变成什么样」，通过审核后就会出现在投票榜上。
+  </p>
+
+  <!-- 服务端注入，避免多一次请求 -->
+  <div id="boot" hidden
+       data-categories="{{categoriesJson}}"
+       data-max-title="{{maxTitleLen}}"
+       data-max-body="{{maxBodyLen}}"
+       data-submit-open="{{submitOpen}}"></div>
+
+  <div id="closed-box" class="notice mb4" hidden>
+    <span class="notice__mark" aria-hidden="true">【暂停】</span>
+    <span>建议提交暂时关闭了，请稍后再来。</span>
+  </div>
+
+  <div class="submit-grid">
+    <!-- ============================ 表单 ============================ -->
+    <section class="px-panel" id="form-panel">
+      <form id="submit-form" novalidate>
+        <div class="identity">
+          <label class="px-label identity__field">
+            <span>昵称 <span class="px-label__req">*</span></span>
+            <input class="px-input" type="text" id="f-nickname" name="nickname"
+                   maxlength="16" autocomplete="nickname" placeholder="2~16 个字，全局唯一">
+          </label>
+          <label class="px-label identity__field">
+            <span>邮箱 <span class="px-label__req">*</span></span>
+            <input class="px-input" type="email" id="f-email" name="email"
+                   maxlength="254" autocomplete="email" placeholder="用于查询你的建议进度">
+          </label>
+        </div>
+        <span class="px-hint">
+          邮箱只用来识别身份和查询进度，不会发验证邮件，也不会公开显示。
+          同一邮箱对同一条建议只能投一票。
+        </span>
+
+        <label class="px-label mt4">
+          <span>分类 <span class="px-label__req">*</span></span>
+          <select class="px-select" id="f-category" name="category"></select>
+        </label>
+
+        <label class="px-label">
+          <span>标题 <span class="px-label__req">*</span></span>
+          <input class="px-input" type="text" id="f-title" name="title"
+                 maxlength="{{maxTitleLen}}" placeholder="一句话说清你想要什么">
+          <span class="px-counter" id="c-title">0 / {{maxTitleLen}}</span>
+        </label>
+
+        <label class="px-label">
+          <span>详细说明 <span class="px-label__req">*</span></span>
+          <textarea class="px-textarea" id="f-body" name="body"
+                    maxlength="{{maxBodyLen}}"
+                    placeholder="可以写：现在是什么情况 / 为什么让你困扰 / 你期望改成什么样。细节越多越容易被采纳。"></textarea>
+          <span class="px-counter" id="c-body">0 / {{maxBodyLen}}</span>
+        </label>
+
+        <div class="row row--wrap mt3">
+          <button class="px-btn px-btn--primary px-btn--lg" type="submit" id="f-submit">
+            提交建议
+          </button>
+          <span class="fs1 muted" id="form-state"></span>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============================ 提交成功回执 ============================ -->
+    <section class="px-panel hidden" id="receipt" style="grid-column:1/-1">
+      <div class="receipt">
+        <svg class="receipt__mark" viewBox="0 0 12 10" xmlns="http://www.w3.org/2000/svg"
+             shape-rendering="crispEdges" aria-hidden="true">
+          <g fill="#7ec9a3">
+            <rect x="4" y="0" width="4" height="1"/>
+            <rect x="3" y="1" width="6" height="1"/>
+            <rect x="2" y="2" width="8" height="1"/>
+            <rect x="1" y="3" width="10" height="1"/>
+            <rect x="1" y="4" width="10" height="1"/>
+            <rect x="1" y="5" width="10" height="1"/>
+            <rect x="1" y="6" width="3" height="1"/>
+            <rect x="8" y="6" width="3" height="1"/>
+            <rect x="2" y="7" width="3" height="1"/>
+            <rect x="7" y="7" width="3" height="1"/>
+            <rect x="3" y="8" width="2" height="1"/>
+            <rect x="7" y="8" width="2" height="1"/>
+            <rect x="4" y="9" width="4" height="1"/>
+          </g>
+          <g fill="#1b1826">
+            <rect x="3" y="4" width="1" height="1"/>
+            <rect x="8" y="4" width="1" height="1"/>
+            <rect x="3" y="5" width="1" height="1"/>
+            <rect x="8" y="5" width="1" height="1"/>
+            <rect x="5" y="6" width="2" height="1"/>
+          </g>
+        </svg>
+        <div class="receipt__title">提交成功！</div>
+        <p class="dim" id="receipt-text">你的建议已经进入审核队列。</p>
+        <p class="fs1 muted mt2">
+          审核通过后会出现在投票榜上。随时可以到「查我的建议」看进度和被拒绝的理由。
+        </p>
+        <div class="row mt4" style="justify-content:center">
+          <a class="px-btn" href="/mine">查看我的建议</a>
+          <a class="px-btn px-btn--gold" href="/vote">去投票榜看看</a>
+          <button class="px-btn px-btn--ghost" type="button" id="again-btn">再提一条</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 写作提示 ============================ -->
+    <aside class="px-panel px-panel--tight" id="tips-panel">
+      <div class="tips__title">什么样的建议更容易通过？</div>
+      <ul class="tips" style="padding-left:18px;margin:0">
+        <li><strong>具体</strong>：说清是哪一关、哪个界面、哪个道具。</li>
+        <li><strong>讲清痛点</strong>：为什么现在这样让你难受。</li>
+        <li><strong>给出期望</strong>：你想要的效果大概是什么样。</li>
+        <li><strong>一条一件事</strong>：把多个想法拆开提，方便分开投票。</li>
+      </ul>
+      <div class="divider"></div>
+      <div class="tips__title">这些会被拒绝</div>
+      <ul class="tips" style="padding-left:18px;margin:0">
+        <li>重复已有建议（先搜一下投票榜）</li>
+        <li>无意义刷屏、广告、人身攻击</li>
+        <li>游戏账号、充值、退款等客服问题</li>
+        <li>破坏核心体验的作弊类需求</li>
+      </ul>
+    </aside>
+  </div>
+</main>
+
+{{> footer}}
+
+<script src="/js/common.js"></script>
+<script src="/js/submit.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> head}}
+<title>已实现 · {{gameName}}</title>
+</head>
+<body>
+{{> topbar}}
+
+<main class="wrap page">
+  <h1 class="page__title">已经实现的建议</h1>
+  <p class="page__lead">
+    这些建议来自玩家，已经做进了游戏里。感谢每一位提交和投票的人。
+  </p>
+
+  <div id="boot" hidden data-categories="{{categoriesJson}}"></div>
+
+  <div class="filterbar">
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="vote-list" id="list"></div>
+  <div class="pager" id="pager"></div>
+</main>
+
+{{> footer}}
+
+<script src="/js/common.js"></script>
+<script src="/js/done.js"></script>
+</body>
+</html>

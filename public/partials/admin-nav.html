@@ -1,0 +1,40 @@
+<aside class="admin__side">
+  <div class="admin__brand">
+    <svg class="brand__mark" viewBox="0 0 12 9" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+      <g fill="#e9bd6d">
+        <rect x="5" y="0" width="2" height="1"/><rect x="4" y="1" width="4" height="1"/>
+        <rect x="2" y="2" width="8" height="1"/><rect x="1" y="3" width="10" height="1"/>
+        <rect x="0" y="4" width="12" height="1"/><rect x="1" y="5" width="10" height="1"/>
+        <rect x="2" y="6" width="8" height="1"/><rect x="4" y="7" width="4" height="1"/>
+        <rect x="5" y="8" width="2" height="1"/>
+      </g>
+      <g fill="#f7e3b4">
+        <rect x="3" y="2" width="3" height="1"/><rect x="2" y="3" width="2" height="1"/>
+      </g>
+      <g fill="#b0873a">
+        <rect x="8" y="3" width="3" height="1"/><rect x="7" y="4" width="5" height="1"/>
+        <rect x="6" y="5" width="5" height="1"/><rect x="5" y="6" width="5" height="1"/>
+      </g>
+    </svg>
+    <span class="admin__brand-text">后台管理</span>
+  </div>
+
+  <nav class="admin__nav">
+    <a class="admin__link" href="/admin" data-nav>仪表盘</a>
+    <a class="admin__link" href="/admin/review" data-nav>
+      待审核 <span class="admin__count" id="nav-pending" hidden></span>
+    </a>
+    <a class="admin__link" href="/admin/suggestions" data-nav>建议管理</a>
+    <a class="admin__link" href="/admin/completed" data-nav>已完成</a>
+    <a class="admin__link" href="/admin/votes" data-nav>投票明细</a>
+    <a class="admin__link" href="/admin/players" data-nav>玩家管理</a>
+    <a class="admin__link" href="/admin/bans" data-nav>封禁名单</a>
+    <a class="admin__link" href="/admin/settings" data-nav>站点设置</a>
+    <a class="admin__link" href="/admin/logs" data-nav>操作日志</a>
+  </nav>
+
+  <div class="admin__side-foot">
+    <a class="admin__link admin__link--ghost" href="/" target="_blank" rel="noopener">查看玩家端 ↗</a>
+    <button class="px-btn px-btn--sm px-btn--ghost px-btn--block" type="button" id="logout-btn">退出登录</button>
+  </div>
+</aside>

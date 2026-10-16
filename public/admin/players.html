@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>玩家管理 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">玩家管理</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="whoami"></span>
+  </header>
+
+  <div class="admin__body">
+    <div class="toolbar">
+      <div class="toolbar__grow">
+        <input class="px-input" type="search" id="q" placeholder="搜邮箱或昵称…">
+      </div>
+      <label class="row" style="gap:6px">
+        <input type="checkbox" id="only-banned">
+        <span class="fs1">只看已封禁</span>
+      </label>
+      <button class="px-btn px-btn--sm" type="button" id="search-btn">查询</button>
+      <button class="px-btn px-btn--sm px-btn--ghost" type="button" id="reset-btn">重置</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="px-table admin-table">
+        <thead>
+          <tr>
+            <th style="width:56px">#</th>
+            <th>昵称 / 邮箱</th>
+            <th style="width:80px">建议</th>
+            <th style="width:80px">投票</th>
+            <th style="width:130px">最近 IP</th>
+            <th style="width:110px">加入时间</th>
+            <th style="width:180px">状态 / 操作</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/players.js"></script>
+</body>
+</html>

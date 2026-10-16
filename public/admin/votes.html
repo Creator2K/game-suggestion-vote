@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>投票明细 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">投票明细</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="whoami"></span>
+  </header>
+
+  <div class="admin__body">
+    <div class="notice mb3">
+      <span class="notice__mark" aria-hidden="true">【提示】</span>
+      <span>
+        每张票都记录了 IP 和浏览器标识。同一个 IP 投出大量票、或大量新邮箱集中在同一时段，通常就是刷票。
+        删票会同步修正票数缓存。
+      </span>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar__grow">
+        <input class="px-input" type="search" id="q-ip" placeholder="按 IP 查（支持片段）">
+      </div>
+      <div class="toolbar__grow">
+        <input class="px-input" type="search" id="q-email" placeholder="按邮箱查（支持片段）">
+      </div>
+      <div class="toolbar__grow">
+        <input class="px-input" type="search" id="q-sug" placeholder="按建议编号查，例如 12">
+      </div>
+      <button class="px-btn px-btn--sm" type="button" id="search-btn">查询</button>
+      <button class="px-btn px-btn--sm px-btn--ghost" type="button" id="reset-btn">重置</button>
+    </div>
+
+    <div class="toolbar" id="purge-bar" hidden>
+      <span class="fs1" id="purge-label"></span>
+      <div class="spacer"></div>
+      <button class="px-btn px-btn--sm px-btn--danger" type="button" id="purge-btn">清理这些票</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="px-table admin-table">
+        <thead>
+          <tr>
+            <th style="width:64px">#</th>
+            <th>投给了哪条建议</th>
+            <th style="width:170px">投票人</th>
+            <th style="width:130px">IP</th>
+            <th style="width:130px">时间</th>
+            <th style="width:80px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/votes.js"></script>
+</body>
+</html>

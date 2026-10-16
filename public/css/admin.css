@@ -1,0 +1,569 @@
+/* ==========================================================================
+   后台管理样式
+   复用 pixel.css 的设计令牌，但布局更紧凑、更适合密集数据
+   ========================================================================== */
+
+body.admin {
+  display: flex;
+  min-height: 100vh;
+  background-image: none;
+  background-color: var(--c-bg);
+}
+
+/* ---------------------------- 侧边栏 ---------------------------- */
+
+.admin__side {
+  flex-shrink: 0;
+  width: 228px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--c-bg-2);
+  border-right: var(--bd) solid var(--c-line);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.admin__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-1);
+  border-bottom: var(--bd) solid var(--c-line);
+  padding-bottom: var(--sp-3);
+}
+
+.admin__brand .brand__mark {
+  width: 30px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.admin__brand-text {
+  font-size: var(--fs-1);
+  color: var(--c-gold);
+  white-space: nowrap;
+}
+
+.admin__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.admin__link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 6px var(--sp-2);
+  font-size: var(--fs-1);
+  color: var(--c-text-dim);
+  border: 3px solid transparent;
+  white-space: nowrap;
+}
+
+.admin__link:hover {
+  color: var(--c-text);
+  background: var(--c-panel);
+}
+
+.admin__link.is-active {
+  color: var(--c-line);
+  background: var(--c-gold);
+  border-color: var(--c-line);
+}
+
+.admin__link--ghost {
+  color: var(--c-text-mute);
+}
+
+.admin__count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 4px;
+  font-size: var(--fs-1);
+  line-height: 18px;
+  text-align: center;
+  color: var(--c-line);
+  background: var(--c-coral);
+  border: 2px solid var(--c-line);
+}
+
+.admin__link.is-active .admin__count {
+  background: var(--c-coral);
+}
+
+.admin__side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: var(--bd) solid var(--c-line);
+}
+
+/* ---------------------------- 主区域 ---------------------------- */
+
+.admin__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin__bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-panel);
+  border-bottom: var(--bd) solid var(--c-line);
+  flex-wrap: wrap;
+}
+
+.admin__title {
+  font-size: var(--fs-2);
+  line-height: 1.2;
+}
+
+.admin__body {
+  padding: var(--sp-4);
+  flex: 1;
+}
+
+/* ---------------------------- 卡片区 ---------------------------- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.card {
+  background: var(--c-panel);
+  border: var(--bd) solid var(--c-line);
+  box-shadow: inset var(--bd) var(--bd) 0 0 var(--c-panel-hi);
+  padding: var(--sp-3);
+}
+
+.card__value {
+  font-size: var(--fs-3);
+  line-height: 1;
+  color: var(--c-text);
+}
+
+.card__label {
+  margin-top: var(--sp-2);
+  font-size: var(--fs-1);
+  color: var(--c-text-mute);
+}
+
+.card--warn .card__value {
+  color: var(--c-gold);
+}
+.card--ok .card__value {
+  color: var(--c-mint);
+}
+.card--danger .card__value {
+  color: var(--c-coral);
+}
+.card--info .card__value {
+  color: var(--c-sky);
+}
+
+/* ---------------------------- 趋势图 ---------------------------- */
+
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 180px;
+  padding: var(--sp-2);
+  background: var(--c-bg);
+  border: var(--bd) solid var(--c-line);
+  box-shadow: inset var(--bd) var(--bd) 0 0 rgba(0, 0, 0, 0.4);
+  overflow-x: auto;
+}
+
+.trend__col {
+  flex: 1 0 22px;
+  min-width: 22px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  cursor: default;
+}
+
+.trend__bar {
+  width: 100%;
+  background-color: var(--c-mint);
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.2) 0 2px,
+    transparent 2px 5px
+  );
+  min-height: 2px;
+}
+
+.trend__bar--sug {
+  background-color: var(--c-lilac);
+}
+
+.trend__label {
+  margin-top: var(--sp-2);
+  display: flex;
+  gap: 3px;
+  font-size: var(--fs-1);
+  color: var(--c-text-mute);
+}
+
+.trend__label span {
+  flex: 1 0 22px;
+  min-width: 22px;
+  text-align: center;
+  writing-mode: vertical-rl;
+  height: 48px;
+  overflow: hidden;
+}
+
+.legend {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  font-size: var(--fs-1);
+  color: var(--c-text-mute);
+  margin-top: var(--sp-2);
+}
+
+.legend__dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border: 2px solid var(--c-line);
+}
+
+/* ---------------------------- 工具条 ---------------------------- */
+
+.toolbar {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex-wrap: wrap;
+  padding: var(--sp-3);
+  background: var(--c-panel);
+  border: var(--bd) solid var(--c-line);
+  box-shadow: inset var(--bd) var(--bd) 0 0 var(--c-panel-hi);
+  margin-bottom: var(--sp-3);
+}
+
+.toolbar__grow {
+  flex: 1;
+  min-width: 160px;
+}
+
+.toolbar .px-input,
+.toolbar .px-select {
+  font-size: var(--fs-1);
+  padding: 4px var(--sp-2);
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.tab {
+  padding: 4px var(--sp-2);
+  font-size: var(--fs-1);
+  color: var(--c-text-dim);
+  background: var(--c-bg);
+  border: 3px solid var(--c-line);
+  margin-right: -3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--c-text);
+  background: var(--c-panel-hi);
+}
+
+.tab.is-active {
+  background: var(--c-gold);
+  color: var(--c-line);
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------------------------- 表格容器 ---------------------------- */
+
+.table-wrap {
+  background: var(--c-panel);
+  border: var(--bd) solid var(--c-line);
+  box-shadow: inset var(--bd) var(--bd) 0 0 var(--c-panel-hi);
+  overflow-x: auto;
+}
+
+.table-wrap .px-table th,
+.table-wrap .px-table td {
+  border-left: none;
+  border-right: none;
+}
+
+.table-wrap .px-table th:first-child,
+.table-wrap .px-table td:first-child {
+  border-left: none;
+}
+
+/* 后台表格用 12px：这是像素字体的原生尺寸，最清晰也最省地方 */
+.admin-table {
+  font-size: var(--fs-1);
+}
+
+.admin-table th {
+  font-size: var(--fs-1);
+}
+
+.admin-table td {
+  padding: var(--sp-2);
+}
+
+.cell-title {
+  display: block;
+  color: var(--c-text);
+  line-height: 1.4;
+  margin-bottom: 3px;
+  word-break: break-word;
+}
+
+.cell-sub {
+  display: block;
+  color: var(--c-text-mute);
+  font-size: var(--fs-1);
+  word-break: break-all;
+}
+
+.cell-badge-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---------------------------- 键值列表 ---------------------------- */
+
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-1);
+}
+
+.kv__k {
+  color: var(--c-text-mute);
+  white-space: nowrap;
+}
+
+.kv__v {
+  color: var(--c-text);
+  word-break: break-all;
+}
+
+/* ---------------------------- 分区 ---------------------------- */
+
+.section {
+  margin-bottom: var(--sp-5);
+}
+
+.section__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.section__title {
+  font-size: var(--fs-2);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-4);
+}
+
+/* ---------------------------- 登录页 ---------------------------- */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+}
+
+.login-box {
+  width: 100%;
+  max-width: 460px;
+  background: var(--c-panel);
+  border: var(--bd-2) solid var(--c-line);
+  box-shadow:
+    inset var(--bd) var(--bd) 0 0 var(--c-panel-hi),
+    12px 12px 0 0 rgba(0, 0, 0, 0.5);
+  padding: var(--sp-5);
+}
+
+.login-box__mark {
+  width: 72px;
+  height: 54px;
+  margin: 0 auto var(--sp-3);
+}
+
+.login-box__title {
+  font-size: var(--fs-3);
+  text-align: center;
+  margin-bottom: var(--sp-2);
+}
+
+.login-box__sub {
+  text-align: center;
+  color: var(--c-text-mute);
+  font-size: var(--fs-1);
+  margin-bottom: var(--sp-4);
+}
+
+/* ---------------------------- 弹窗内的操作区 ---------------------------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 var(--sp-4);
+}
+
+.inline-actions {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.badge-list {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  margin-top: var(--sp-2);
+}
+
+/* 分类标签编辑器 */
+.tag-edit {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.tag-edit__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 3px 3px var(--sp-2);
+  font-size: var(--fs-1);
+  background: var(--c-lilac);
+  color: var(--c-line);
+  border: 3px solid var(--c-line);
+}
+
+.tag-edit__del {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-coral);
+  border: 2px solid var(--c-line);
+  cursor: pointer;
+  font-size: var(--fs-1);
+  line-height: 1;
+}
+
+/* 截图管理 */
+.shot-manage {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-3);
+}
+
+.shot-manage__item {
+  background: var(--c-bg);
+  border: var(--bd) solid var(--c-line);
+  padding: var(--sp-1);
+}
+
+.shot-manage__item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+/* ---------------------------- 响应式 ---------------------------- */
+
+@media (max-width: 860px) {
+  body.admin {
+    flex-direction: column;
+  }
+
+  .admin__side {
+    width: 100%;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: var(--bd) solid var(--c-line);
+  }
+
+  .admin__nav {
+    flex-direction: row;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: var(--sp-1);
+  }
+
+  .admin__brand {
+    padding-bottom: var(--sp-2);
+  }
+
+  .admin__side-foot {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .admin__side-foot .px-btn {
+    width: auto;
+  }
+
+  .admin__body {
+    padding: var(--sp-3);
+  }
+
+  .admin__title {
+    font-size: var(--fs-1);
+  }
+
+  .trend {
+    height: 130px;
+  }
+
+  .card__value {
+    font-size: var(--fs-2);
+  }
+}

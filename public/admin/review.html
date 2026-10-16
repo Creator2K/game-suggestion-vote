@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>待审核 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">待审核</h1>
+    <span class="px-badge px-badge--pending" id="pending-count">0</span>
+    <div class="spacer"></div>
+    <span class="fs1 muted">快捷键：<b>A</b> 通过 · <b>R</b> 拒绝 · <b>E</b> 编辑</span>
+    <span class="fs1 muted" id="whoami"></span>
+  </header>
+
+  <div class="admin__body">
+    <div class="toolbar">
+      <label class="row" style="gap:6px">
+        <input type="checkbox" id="full-body">
+        <span class="fs1">展开完整正文（默认折叠较长的内容）</span>
+      </label>
+      <div class="spacer"></div>
+      <button class="px-btn px-btn--sm px-btn--ghost" type="button" id="refresh">刷新</button>
+    </div>
+
+    <div id="list" class="stack"></div>
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/review.js"></script>
+</body>
+</html>

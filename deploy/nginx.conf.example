@@ -1,0 +1,81 @@
+# 游戏建议投票系统 · Nginx 反向代理配置示例
+#
+# 用法：
+#   sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/vote-board
+#   sudo ln -s /etc/nginx/sites-available/vote-board /etc/nginx/sites-enabled/
+#   把下面的 vote.example.com 换成你的域名
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# HTTPS 用 certbot 一条命令搞定：
+#   sudo apt install certbot python3-certbot-nginx
+#   sudo certbot --nginx -d vote.example.com
+# certbot 会自动改写这个文件、加上 443 段和证书路径。
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name vote.example.com;
+
+    # 后台支持上传 2MB 以内的截图，经过 base64 编码后会变大，
+    # 所以这里的上限要大于 2MB。太小会导致上传截图返回 413。
+    client_max_body_size 8m;
+
+    # 访问日志（可选）
+    access_log /var/log/nginx/vote-board.access.log;
+    error_log  /var/log/nginx/vote-board.error.log;
+
+    location / {
+        proxy_pass http://127.0.0.1:3210;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # 别让 Nginx 断开长连接时把请求掐掉
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
+    }
+
+    # 字体文件不大但很少变，可以让浏览器多缓存一会儿
+    location /fonts/ {
+        proxy_pass http://127.0.0.1:3210;
+        proxy_set_header Host $host;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # 上传的截图
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:3210;
+        proxy_set_header Host $host;
+        expires 7d;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 如果 certbot 没有自动生成 443 段，可以手动加上下面这段（把证书路径换成你的）
+# ---------------------------------------------------------------------------
+#
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     server_name vote.example.com;
+#
+#     ssl_certificate     /etc/letsencrypt/live/vote.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/vote.example.com/privkey.pem;
+#     include             /etc/letsencrypt/options-ssl-nginx.conf;
+#     ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+#
+#     client_max_body_size 8m;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:3210;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host              $host;
+#         proxy_set_header X-Real-IP         $remote_addr;
+#         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }

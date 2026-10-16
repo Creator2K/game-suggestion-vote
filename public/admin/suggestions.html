@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>建议管理 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">建议管理</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="whoami"></span>
+  </header>
+
+  <div class="admin__body">
+    <div class="toolbar">
+      <div class="tabs" id="status-tabs"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar__grow">
+        <input class="px-input" type="search" id="q" placeholder="搜标题 / 正文 / 昵称 / 邮箱…">
+      </div>
+      <select class="px-select" id="category" style="width:auto">
+        <option value="">全部分类</option>
+      </select>
+      <select class="px-select" id="sort" style="width:auto">
+        <option value="newest">最新提交</option>
+        <option value="oldest">最早提交</option>
+        <option value="votes">票数最高</option>
+        <option value="updated">最近改动</option>
+      </select>
+      <button class="px-btn px-btn--sm" type="button" id="search-btn">搜索</button>
+      <button class="px-btn px-btn--sm px-btn--ghost" type="button" id="reset-btn">重置</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="px-table admin-table">
+        <thead>
+          <tr>
+            <th style="width:52px">#</th>
+            <th>标题</th>
+            <th style="width:78px">分类</th>
+            <th style="width:78px">状态</th>
+            <th style="width:64px">票数</th>
+            <th style="width:150px">提交者</th>
+            <th style="width:110px">时间</th>
+            <th style="width:210px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/suggestions.js"></script>
+</body>
+</html>

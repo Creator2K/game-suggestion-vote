@@ -1,0 +1,41 @@
+[Unit]
+Description=游戏建议投票系统
+Documentation=file:///opt/vote-board/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# 改成你自己的运行用户（不建议用 root）
+User=www-data
+Group=www-data
+
+WorkingDirectory=/opt/vote-board
+ExecStart=/usr/bin/node src/app.js
+
+Environment=NODE_ENV=production
+Environment=PORT=3210
+Environment=HOST=127.0.0.1
+# 在 Nginx 后面一定要打开，否则记录到的是反代 IP，限频和封禁都会失效
+Environment=TRUST_PROXY=1
+
+Restart=always
+RestartSec=5
+
+# 日志走 journald，用 journalctl -u vote-board -f 查看
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vote-board
+
+# 基本加固
+NoNewPrivileges=true
+PrivateTmp=true
+# strict 会把整个文件系统挂成只读，只放行下面两行列出的目录。
+# 如果你用环境变量把 DATA_DIR / BACKUP_DIR 改到了别处，记得同步改这里。
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/vote-board/data /opt/vote-board/backups
+
+[Install]
+WantedBy=multi-user.target

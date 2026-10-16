@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>仪表盘 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">仪表盘</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="whoami"></span>
+    <div class="toolbar" style="margin:0;padding:0;background:none;border:none;box-shadow:none">
+      <select class="px-select" id="days" style="width:auto">
+        <option value="7">最近 7 天</option>
+        <option value="14" selected>最近 14 天</option>
+        <option value="30">最近 30 天</option>
+        <option value="60">最近 60 天</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="admin__body" id="page">
+    <div class="cards" id="cards">
+      <div class="skeleton" style="height:96px"></div>
+      <div class="skeleton" style="height:96px"></div>
+      <div class="skeleton" style="height:96px"></div>
+      <div class="skeleton" style="height:96px"></div>
+    </div>
+
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">趋势</h2>
+        <span class="fs1 muted" id="trend-note"></span>
+      </div>
+      <div id="trend-box"></div>
+      <div class="legend">
+        <span><i class="legend__dot" style="background:#7ec9a3"></i>新增投票</span>
+        <span><i class="legend__dot" style="background:#b79ce8"></i>新增建议</span>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <section class="section">
+        <div class="section__head">
+          <h2 class="section__title">票数最高的建议</h2>
+          <div class="spacer"></div>
+          <a class="px-btn px-btn--sm" href="/vote" target="_blank" rel="noopener">看玩家端 ↗</a>
+        </div>
+        <div id="top-box"></div>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h2 class="section__title">最新提交</h2>
+          <div class="spacer"></div>
+          <a class="px-btn px-btn--sm px-btn--gold" href="/admin/review">去审核</a>
+        </div>
+        <div id="recent-box"></div>
+      </section>
+    </div>
+
+    <section class="section" id="suspicious-section" hidden>
+      <div class="section__head">
+        <h2 class="section__title">可疑的投票 IP</h2>
+        <span class="fs1 muted">同一地址投出的票明显偏多，点箭头去看明细</span>
+      </div>
+      <div id="suspicious-box"></div>
+    </section>
+
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">维护工具</h2>
+      </div>
+      <div class="toolbar">
+        <button class="px-btn px-btn--sm" type="button" id="btn-recount">重算票数</button>
+        <button class="px-btn px-btn--sm" type="button" id="btn-cleanup">清理过期数据</button>
+        <span class="fs1 muted">重算用于票数缓存与明细不一致时修正；清理会删除过期会话和 7 天前的限频记录。</span>
+      </div>
+    </section>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/dashboard.js"></script>
+</body>
+</html>

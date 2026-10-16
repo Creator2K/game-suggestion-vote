@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    image: game-suggestion-vote:latest
+    container_name: vote-board
+    restart: unless-stopped
+
+    ports:
+      - "3210:3210"
+
+    environment:
+      NODE_ENV: production
+      PORT: "3210"
+
+      # 放在 Nginx / Caddy 后面时保持 1，否则服务看到的是反代地址，
+      # 按 IP 限频和 IP 封禁都会失效。
+      TRUST_PROXY: "1"
+
+      # 后台会话有效期（天）
+      # SESSION_DAYS: "7"
+
+      # 备份保留份数
+      # BACKUP_KEEP: "14"
+
+    volumes:
+      # 数据库和上传的截图
+      - ./data:/app/data
+      # 自动备份
+      - ./backups:/app/backups
+
+    # 首次启动时容器是 root，会把上面两个目录的所有权修正成 node 再降权运行，
+    # 所以不用手动 chown。想固定用户也可以打开下面这行：
+    # user: "1000:1000"

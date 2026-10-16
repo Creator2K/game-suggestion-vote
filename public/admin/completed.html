@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>已完成 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">已实现管理</h1>
+    <div class="spacer"></div>
+    <a class="px-btn px-btn--sm" href="/done" target="_blank" rel="noopener">看玩家端页面 ↗</a>
+    <span class="fs1 muted" id="whoami"></span>
+  </header>
+
+  <div class="admin__body">
+    <div class="toolbar">
+      <div class="toolbar__grow">
+        <input class="px-input" type="search" id="q" placeholder="搜标题…">
+      </div>
+      <select class="px-select" id="category" style="width:auto">
+        <option value="">全部分类</option>
+      </select>
+      <button class="px-btn px-btn--sm" type="button" id="search-btn">搜索</button>
+    </div>
+
+    <div id="list" class="stack"></div>
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/completed.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>站点设置 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">站点设置</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="whoami"></span>
+    <button class="px-btn px-btn--sm px-btn--primary" type="button" id="save-btn">保存全部修改</button>
+  </header>
+
+  <div class="admin__body">
+
+    <!-- ==================== 站点文案 ==================== -->
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">站点文案</h2>
+        <span class="fs1 muted">这些文字会直接显示在玩家端首页和顶栏</span>
+      </div>
+      <div class="px-panel">
+        <div class="form-grid">
+          <label class="px-label">
+            <span>游戏名</span>
+            <input class="px-input" type="text" id="game_name" maxlength="80">
+            <span class="px-hint">显示在首页大标题和顶栏</span>
+          </label>
+          <label class="px-label">
+            <span>站点标题</span>
+            <input class="px-input" type="text" id="site_title" maxlength="80">
+            <span class="px-hint">浏览器标签页标题的后半段</span>
+          </label>
+        </div>
+        <label class="px-label">
+          <span>宣传语</span>
+          <input class="px-input" type="text" id="tagline" maxlength="80">
+        </label>
+        <label class="px-label">
+          <span>副标题</span>
+          <input class="px-input" type="text" id="hero_sub" maxlength="80">
+        </label>
+        <label class="px-label">
+          <span>公告（留空则不显示）</span>
+          <textarea class="px-textarea" id="announcement" maxlength="300" style="min-height:96px"
+                    placeholder="例如：1.4 版本正在开发，本轮投票截止到月底"></textarea>
+        </label>
+        <label class="px-label" style="margin-bottom:0">
+          <span>页脚文字</span>
+          <input class="px-input" type="text" id="footer_text" maxlength="80">
+        </label>
+      </div>
+    </section>
+
+    <!-- ==================== 分类 ==================== -->
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">建议分类</h2>
+        <span class="fs1 muted">最多 12 个，每个不超过 12 字。改动后玩家端立刻生效</span>
+      </div>
+      <div class="px-panel">
+        <div class="tag-edit mb3" id="cat-list"></div>
+        <div class="row">
+          <input class="px-input" type="text" id="cat-new" maxlength="12" placeholder="新分类名" style="max-width:240px">
+          <button class="px-btn px-btn--sm" type="button" id="cat-add">添加</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 截图 ==================== -->
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">首页游戏截图</h2>
+        <span class="fs1 muted">最多 8 张，单张不超过 2MB，支持 PNG / JPG / WebP / GIF</span>
+      </div>
+      <div class="px-panel">
+        <div class="row row--wrap mb3">
+          <input type="file" id="shot-file" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+          <span class="fs1 muted" id="shot-state"></span>
+        </div>
+        <div class="shot-manage" id="shot-list"></div>
+      </div>
+    </section>
+
+    <!-- ==================== 开关与限频 ==================== -->
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">开关与防刷阈值</h2>
+        <span class="fs1 muted">改完点右上角保存。阈值改动即时生效，不用重启</span>
+      </div>
+      <div class="px-panel">
+        <div class="row row--wrap mb4" style="gap:24px">
+          <label class="row" style="gap:6px">
+            <input type="checkbox" id="submit_open">
+            <span>允许提交建议</span>
+          </label>
+          <label class="row" style="gap:6px">
+            <input type="checkbox" id="vote_open">
+            <span>允许投票</span>
+          </label>
+        </div>
+
+        <div class="form-grid">
+          <label class="px-label">
+            <span>每 IP 每小时最多投票</span>
+            <input class="px-input" type="number" id="rate_vote_per_hour" min="1" max="1000">
+          </label>
+          <label class="px-label">
+            <span>每邮箱每天最多提交建议</span>
+            <input class="px-input" type="number" id="rate_submit_per_day" min="1" max="200">
+          </label>
+          <label class="px-label">
+            <span>每 IP 每天最多提交建议</span>
+            <input class="px-input" type="number" id="rate_submit_per_day_ip" min="1" max="500">
+            <span class="px-hint">防止有人批量注册邮箱绕过上一条</span>
+          </label>
+          <label class="px-label">
+            <span>每 IP 每天最多新注册玩家</span>
+            <input class="px-input" type="number" id="rate_newplayer_per_day_ip" min="1" max="500">
+          </label>
+          <label class="px-label">
+            <span>标题字数上限</span>
+            <input class="px-input" type="number" id="max_title_len" min="10" max="120">
+          </label>
+          <label class="px-label">
+            <span>正文字数上限</span>
+            <input class="px-input" type="number" id="max_body_len" min="50" max="5000">
+          </label>
+        </div>
+
+        <label class="px-label" style="max-width:320px">
+          <span>投票榜默认排序</span>
+          <select class="px-select" id="vote_rank_mode">
+            <option value="votes">按票数（推荐）</option>
+            <option value="newest">按最新</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- ==================== 密码 ==================== -->
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">修改管理员密码</h2>
+        <span class="fs1 muted">改完会自动登出，需要用新密码重新登录</span>
+      </div>
+      <div class="px-panel" style="max-width:520px">
+        <label class="px-label">
+          <span>当前密码</span>
+          <input class="px-input" type="password" id="pw-cur" autocomplete="current-password">
+        </label>
+        <label class="px-label">
+          <span>新密码</span>
+          <input class="px-input" type="password" id="pw-new" autocomplete="new-password">
+          <span class="px-hint">至少 8 位</span>
+        </label>
+        <label class="px-label">
+          <span>确认新密码</span>
+          <input class="px-input" type="password" id="pw-new2" autocomplete="new-password">
+        </label>
+        <button class="px-btn px-btn--danger" type="button" id="pw-btn">修改密码</button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/settings.js"></script>
+</body>
+</html>

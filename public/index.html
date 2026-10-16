@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> head}}
+<title>{{gameName}} · {{siteTitle}}</title>
+</head>
+<body>
+{{> topbar}}
+
+<!-- ============================ Hero ============================ -->
+<section class="hero">
+  <div class="hero__sky"></div>
+  <div class="hero__sun" aria-hidden="true"></div>
+
+  <svg class="hero__scene" viewBox="0 0 320 90" preserveAspectRatio="none"
+       xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"
+       aria-hidden="true" focusable="false">
+    <!-- 远山：最亮，做空气透视 -->
+    <path fill="#5a4a6e" d="M0 58 L26 40 L48 58 L74 34 L98 58 L130 44 L160 58 L192 32 L220 58 L252 42 L282 58 L320 46 L320 90 L0 90 Z"/>
+    <!-- 中山 -->
+    <path fill="#453a5c" d="M0 72 L34 56 L62 72 L96 54 L128 72 L166 58 L198 72 L236 56 L268 72 L300 60 L320 72 L320 90 L0 90 Z"/>
+    <!-- 近景丘陵 -->
+    <path fill="#332c4a" d="M0 84 L40 74 L86 84 L130 76 L176 84 L222 75 L268 84 L320 78 L320 90 L0 90 Z"/>
+    <!-- 地面 -->
+    <rect x="0" y="84" width="320" height="6" fill="#251f38"/>
+    <!-- 树（剪影） -->
+    <g fill="#241f36">
+      <rect x="52" y="74" width="3" height="10"/>
+      <path d="M46 74 L53.5 60 L61 74 Z"/>
+      <rect x="188" y="72" width="3" height="12"/>
+      <path d="M181 72 L189.5 56 L198 72 Z"/>
+      <rect x="286" y="76" width="3" height="8"/>
+      <path d="M281 76 L287.5 66 L294 76 Z"/>
+    </g>
+  </svg>
+
+  <div class="wrap hero__inner">
+    <svg class="hero__logo" viewBox="0 0 12 9" xmlns="http://www.w3.org/2000/svg"
+         shape-rendering="crispEdges" aria-hidden="true">
+      <g fill="#e9bd6d">
+        <rect x="5" y="0" width="2" height="1"/>
+        <rect x="4" y="1" width="4" height="1"/>
+        <rect x="2" y="2" width="8" height="1"/>
+        <rect x="1" y="3" width="10" height="1"/>
+        <rect x="0" y="4" width="12" height="1"/>
+        <rect x="1" y="5" width="10" height="1"/>
+        <rect x="2" y="6" width="8" height="1"/>
+        <rect x="4" y="7" width="4" height="1"/>
+        <rect x="5" y="8" width="2" height="1"/>
+      </g>
+      <g fill="#f7e3b4">
+        <rect x="3" y="2" width="3" height="1"/>
+        <rect x="2" y="3" width="2" height="1"/>
+      </g>
+      <g fill="#b0873a">
+        <rect x="8" y="3" width="3" height="1"/>
+        <rect x="7" y="4" width="5" height="1"/>
+        <rect x="6" y="5" width="5" height="1"/>
+        <rect x="5" y="6" width="5" height="1"/>
+      </g>
+    </svg>
+
+    <h1 class="hero__title">{{gameName}}</h1>
+    <p class="hero__tagline">{{tagline}}</p>
+    <p class="hero__sub">{{heroSub}}</p>
+
+    <div class="hero__actions">
+      <a class="px-btn px-btn--gold px-btn--lg" href="/vote">去看看投票榜</a>
+      <a class="px-btn px-btn--primary px-btn--lg" href="/submit">提交我的建议</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap page">
+
+  <!-- 服务端已经把站点配置注入到这里，避免再发一次请求、也避免文案闪一下 -->
+  <div id="boot" hidden
+       data-announcement="{{announcement}}"
+       data-screenshots="{{screenshotsJson}}"></div>
+
+  <!-- ============================ 公告 ============================ -->
+  <div id="notice-box" class="notice mb4" hidden>
+    <span class="notice__mark" aria-hidden="true">【公告】</span>
+    <span id="notice-text"></span>
+  </div>
+
+  <!-- ============================ 实时统计 ============================ -->
+  <h2 class="px-section-title">现在的进度</h2>
+  <div class="stats" id="stats">
+    <div class="stat stat--mint">
+      <div class="stat__value" id="s-approved">–</div>
+      <div class="stat__label">正在投票的建议</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value" id="s-votes">–</div>
+      <div class="stat__label">累计投出的票</div>
+    </div>
+    <div class="stat stat--sky">
+      <div class="stat__value" id="s-done">–</div>
+      <div class="stat__label">已经被实现</div>
+    </div>
+    <div class="stat stat--lilac">
+      <div class="stat__value" id="s-players">–</div>
+      <div class="stat__label">参与过的玩家</div>
+    </div>
+  </div>
+
+  <!-- ============================ 热门 Top 3 ============================ -->
+  <section class="home-section">
+    <h2 class="px-section-title">呼声最高的三个</h2>
+    <div class="top3" id="top3">
+      <div class="skeleton" style="height:96px"></div>
+      <div class="skeleton" style="height:96px"></div>
+      <div class="skeleton" style="height:96px"></div>
+    </div>
+    <p class="center mt4">
+      <a class="px-btn" href="/vote">查看完整投票榜 →</a>
+    </p>
+  </section>
+
+  <!-- ============================ 游戏截图 ============================ -->
+  <section class="home-section" id="shots-section" hidden>
+    <h2 class="px-section-title">游戏长这样</h2>
+    <div class="shots" id="shots"></div>
+  </section>
+
+  <!-- ============================ 底部引导 ============================ -->
+  <section class="cta">
+    <h2 class="cta__title">有想法？说出来。</h2>
+    <p class="cta__text">
+      写清楚你遇到的问题和期望的效果，通过审核后就会出现在投票榜上，<br>
+      票数够高的建议会优先进入开发计划。
+    </p>
+    <div class="hero__actions" style="margin-top:0">
+      <a class="px-btn px-btn--primary px-btn--lg" href="/submit">去提交建议</a>
+      <a class="px-btn px-btn--lg" href="/mine">查我提过的</a>
+    </div>
+  </section>
+
+</main>
+
+{{> footer}}
+
+<script src="/js/common.js"></script>
+<script src="/js/index.js"></script>
+</body>
+</html>
