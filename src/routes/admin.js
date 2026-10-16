@@ -3,21 +3,22 @@
 /**
  * 后台 API。
  *
- * 认证：单一管理员密码（scrypt 加盐哈希存 settings 表）。
+ * 认证：单一管理员密码（PBKDF2 加盐哈希存 settings 表）。
  * 所有写操作都要过 requireAdmin + requireCsrf（见 middleware/admin.js）。
  * 所有变更都会写 audit_log，方便回溯。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const express = require('express');
 const db = require('../db');
-const config = require('../config');
+const runtime = require('../runtime');
 const u = require('../util');
 const adminAuth = require('../middleware/admin');
 const { requireAdmin, requireCsrf } = adminAuth;
 
-const router = express.Router();
+/**
+ * 把后台 API 挂到传入的 router 上。
+ * 与玩家端同理：Node 传 Express Router，Workers 传 worker/mini-router.js。
+ */
+module.exports = function mountAdminApi(router) {
 
 const { DAY, HOUR } = { DAY: 86400000, HOUR: 3600000 };
 
@@ -262,7 +263,7 @@ router.get('/state', (req, res) => {
 
 router.post(
   '/setup',
-  u.wrap((req, res) => {
+  u.wrap(async (req, res) => {
     // 只允许在尚未初始化时调用一次
     if (db.getSetting('admin_password_hash', '')) {
       return u.fail(res, '管理员密码已经设置过了，请直接登录', 409);
@@ -272,7 +273,7 @@ router.post(
     const err = u.validateAdminPassword(password);
     if (err) return u.fail(res, err, 400);
 
-    const { salt, hash } = u.hashPassword(password);
+    const { salt, hash } = await u.hashPassword(password);
     db.setSetting('admin_password_salt', salt);
     db.setSetting('admin_password_hash', hash);
     db.logAudit({
@@ -283,7 +284,7 @@ router.post(
 
     // 设置完直接登录，省一步
     const token = u.newToken();
-    const expiresAt = Date.now() + config.SESSION_DAYS * DAY;
+    const expiresAt = Date.now() + runtime.sessionDays * DAY;
     db.run(
       'INSERT INTO admin_sessions (token, created_at, expires_at, ip, user_agent) VALUES (?, ?, ?, ?, ?)',
       token,
@@ -292,7 +293,7 @@ router.post(
       u.clientIp(req),
       u.userAgent(req)
     );
-    adminAuth.setCookie(res, token, config.SESSION_DAYS * 86400, wantSecureCookie(req));
+    adminAuth.setCookie(res, token, runtime.sessionDays * 86400, wantSecureCookie(req));
 
     u.ok(res, { token, expiresAt, initialized: true });
   })
@@ -300,7 +301,7 @@ router.post(
 
 router.post(
   '/login',
-  u.wrap((req, res) => {
+  u.wrap(async (req, res) => {
     const ip = u.clientIp(req);
     const waitSec = loginBlocked(ip);
     if (waitSec > 0) {
@@ -313,10 +314,21 @@ router.post(
       return u.fail(res, '后台还没初始化，请先设置管理员密码', 409, { needSetup: true });
     }
 
+    // 旧版本用 scrypt 存密码，换算法后认不出来。这里给明确指引，
+    // 否则用户只会看到「密码不正确」，怎么试都没用。
+    if (u.hashFormat(storedHash) !== 'pbkdf2') {
+      return u.fail(
+        res,
+        '管理员密码的存储格式已升级，请执行 npm run reset-password 重设密码',
+        409,
+        { needReset: true }
+      );
+    }
+
     const password = String((req.body || {}).password || '');
     const salt = db.getSetting('admin_password_salt', '');
 
-    if (!u.verifyPassword(password, salt, storedHash)) {
+    if (!(await u.verifyPassword(password, salt, storedHash))) {
       loginFailed(ip);
       db.logAudit({ action: 'admin.login_failed', ip, detail: null });
       return u.fail(res, '密码不正确', 401);
@@ -327,7 +339,7 @@ router.post(
     // 每次登录清掉旧会话，单人后台没必要留多份
     db.run('DELETE FROM admin_sessions');
     const token = u.newToken();
-    const expiresAt = Date.now() + config.SESSION_DAYS * DAY;
+    const expiresAt = Date.now() + runtime.sessionDays * DAY;
     db.run(
       'INSERT INTO admin_sessions (token, created_at, expires_at, ip, user_agent) VALUES (?, ?, ?, ?, ?)',
       token,
@@ -336,10 +348,53 @@ router.post(
       ip,
       u.userAgent(req)
     );
-    adminAuth.setCookie(res, token, config.SESSION_DAYS * 86400, wantSecureCookie(req));
+    adminAuth.setCookie(res, token, runtime.sessionDays * 86400, wantSecureCookie(req));
     db.logAudit({ action: 'admin.login', ip });
 
     u.ok(res, { token, expiresAt });
+  })
+);
+
+/* ================================================================== *
+ * 忘记密码时的自救入口（在 requireAdmin 之前，所以不需要登录）
+ * ================================================================== */
+
+/** 定长比较，别用 === 泄漏时间差 */
+function tokenEquals(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * 凭重置令牌改管理员密码。
+ * 令牌没配置时这里直接当作不存在——避免出现一个默认就能用的后门。
+ *   Workers: wrangler secret put RESET_TOKEN
+ *   Node:    RESET_TOKEN=xxx npm start
+ */
+router.post(
+  '/force-reset',
+  u.wrap(async (req, res) => {
+    const expect = String(runtime.resetToken || '');
+    if (!expect) return u.fail(res, '接口不存在', 404);
+
+    if (!tokenEquals(String(req.get('x-reset-token') || ''), expect)) {
+      return u.fail(res, '重置令牌不正确', 403);
+    }
+
+    const password = String((req.body || {}).password || '');
+    const err = u.validateAdminPassword(password);
+    if (err) return u.fail(res, err, 400);
+
+    const fresh = await u.hashPassword(password);
+    db.setSetting('admin_password_salt', fresh.salt);
+    db.setSetting('admin_password_hash', fresh.hash);
+    db.run('DELETE FROM admin_sessions');
+    adminAuth.clearCookie(res);
+    db.logAudit({ action: 'admin.force_reset', ip: u.clientIp(req), detail: '凭重置令牌' });
+
+    u.ok(res, { relogin: true });
   })
 );
 
@@ -1120,21 +1175,21 @@ router.put('/settings', (req, res) => {
 });
 
 /** 修改管理员密码 */
-router.post('/password', (req, res) => {
+router.post('/password', u.wrap(async (req, res) => {
   const body = req.body || {};
   const current = String(body.current || '');
   const next = String(body.next || '');
 
   const salt = db.getSetting('admin_password_salt', '');
   const hash = db.getSetting('admin_password_hash', '');
-  if (!u.verifyPassword(current, salt, hash)) {
+  if (!(await u.verifyPassword(current, salt, hash))) {
     return u.fail(res, '当前密码不正确', 401);
   }
 
   const err = u.validateAdminPassword(next);
   if (err) return u.fail(res, err, 400);
 
-  const fresh = u.hashPassword(next);
+  const fresh = await u.hashPassword(next);
   db.setSetting('admin_password_salt', fresh.salt);
   db.setSetting('admin_password_hash', fresh.hash);
 
@@ -1144,7 +1199,7 @@ router.post('/password', (req, res) => {
 
   db.logAudit({ action: 'admin.password_change', ip: u.clientIp(req) });
   u.ok(res, { relogin: true });
-});
+}));
 
 /* ------------------------------ 首页截图上传 ------------------------------ */
 
@@ -1183,11 +1238,12 @@ router.post('/screenshots', (req, res) => {
   if (!magicOk) return u.fail(res, '文件内容不像是一张图片', 400);
 
   const filename = `${u.newId()}.${ext}`;
-  fs.writeFileSync(path.join(config.UPLOAD_DIR, filename), buf);
+  const store = runtime.screenshots();
+  store.put(filename, buf, mime);
 
   const current = db.publicConfig().screenshots;
   if (current.length >= 8) {
-    fs.unlinkSync(path.join(config.UPLOAD_DIR, filename));
+    store.remove(filename);
     return u.fail(res, '首页截图最多 8 张，先删掉几张再传', 409);
   }
 
@@ -1212,12 +1268,11 @@ router.delete('/screenshots', (req, res) => {
   const next = current.filter((s) => s.id !== id);
   db.setSetting('screenshots', JSON.stringify(next));
 
-  // 只删自己 uploads 目录里的文件
-  const base = path.basename(target.url);
-  const abs = path.join(config.UPLOAD_DIR, base);
-  if (abs.startsWith(config.UPLOAD_DIR) && fs.existsSync(abs)) {
+  // 只删自己存的那些：文件名从 URL 里取，带路径的值一律不认
+  const base = String(target.url).split('/').pop();
+  if (/^[A-Za-z0-9._-]+$/.test(base)) {
     try {
-      fs.unlinkSync(abs);
+      runtime.screenshots().remove(base);
     } catch {
       /* 文件删不掉不影响配置更新 */
     }
@@ -1277,5 +1332,4 @@ router.post('/cleanup', (req, res) => {
   db.logAudit({ action: 'maintenance.cleanup', ip: u.clientIp(req) });
   u.ok(res);
 });
-
-module.exports = router;
+};

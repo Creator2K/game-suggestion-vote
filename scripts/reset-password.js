@@ -10,6 +10,8 @@ const readline = require('node:readline');
 const db = require('../src/db');
 const u = require('../src/util');
 
+require('../src/node-boot').boot();
+
 function ask(question, hidden) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -37,8 +39,6 @@ function ask(question, hidden) {
 }
 
 (async () => {
-  db.init();
-
   let password = process.argv[2];
   if (!password) {
     password = await ask('请输入新的管理员密码：');
@@ -59,7 +59,7 @@ function ask(question, hidden) {
     return;
   }
 
-  const { salt, hash } = u.hashPassword(password);
+  const { salt, hash } = await u.hashPassword(password);
   db.setSetting('admin_password_salt', salt);
   db.setSetting('admin_password_hash', hash);
   db.run('DELETE FROM admin_sessions');

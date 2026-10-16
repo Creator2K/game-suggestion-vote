@@ -7,56 +7,71 @@
  * 这里在吐 HTML 时就把游戏名、宣传语注入进去，首屏直接是对的。
  *
  * 安全：所有注入值都经过 HTML 转义。
+ *
+ * 模板从哪来由 loader 决定（见 setLoader）：
+ *   Node    → src/loaders/fs-views.js，读 public/ 目录，带 mtime 自动失效
+ *   Workers → worker/loaders/assets-views.js，从 Static Assets 绑定读，进程内缓存
+ * 因此本层不引用任何文件系统 API。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const config = require('./config');
 const db = require('./db');
 const { escapeHtml } = require('./util');
 
-/** 文件内容缓存，附带 mtime 以便开发时自动失效 */
-const cache = new Map();
+/** async (relPath: string) => Promise<string>，找不到就抛错 */
+let loader = null;
 
-function readTemplate(absPath) {
-  const stat = fs.statSync(absPath);
-  const hit = cache.get(absPath);
-  if (hit && hit.mtimeMs === stat.mtimeMs) return hit.text;
-  const text = fs.readFileSync(absPath, 'utf8');
-  cache.set(absPath, { mtimeMs: stat.mtimeMs, text });
-  return text;
+function setLoader(fn) {
+  if (typeof fn !== 'function') throw new Error('模板 loader 必须是函数');
+  loader = fn;
 }
 
-function readPartial(name) {
+async function readPartial(name) {
   // 只允许简单的名字，防止路径穿越
   if (!/^[A-Za-z0-9_-]+$/.test(name)) return '';
-  const abs = path.join(config.PUBLIC_DIR, 'partials', `${name}.html`);
   try {
-    return readTemplate(abs);
+    return await loader(`partials/${name}.html`);
   } catch {
     return `<!-- 缺少局部模板 partials/${name}.html -->`;
   }
 }
 
+/** 展开 {{> partialName}}，允许多层嵌套 */
+async function expandPartials(html) {
+  const re = /\{\{>\s*([A-Za-z0-9_-]+)\s*\}\}/g;
+
+  for (let round = 0; round < 5; round += 1) {
+    const matches = [...html.matchAll(re)];
+    if (matches.length === 0) break;
+
+    const parts = await Promise.all(matches.map((m) => readPartial(m[1])));
+    let out = '';
+    let cursor = 0;
+    matches.forEach((m, i) => {
+      out += html.slice(cursor, m.index) + parts[i];
+      cursor = m.index + m[0].length;
+    });
+    out += html.slice(cursor);
+
+    if (out === html) break;
+    html = out;
+  }
+  return html;
+}
+
 /**
- * 渲染 public 目录下的一个 HTML 模板。
+ * 渲染一个 HTML 模板。
  * 支持两种语法：
- *   {{> partialName}}  嵌入 public/partials/partialName.html（可嵌套）
+ *   {{> partialName}}  嵌入 partials/partialName.html（可嵌套）
  *   {{variable}}       注入配置变量（自动 HTML 转义）
  *
- * @param {string} relPath 相对 public 的路径，如 'index.html'
+ * @param {string} relPath 模板相对路径，如 'index.html'、'admin/login.html'
  * @param {Record<string, unknown>} extra 额外注入的变量（会覆盖配置同名项）
  */
-function render(relPath, extra = {}) {
-  const abs = path.join(config.PUBLIC_DIR, relPath);
-  let html = readTemplate(abs);
+async function render(relPath, extra = {}) {
+  if (!loader) throw new Error('模板 loader 未初始化：请先调用 template.setLoader()');
 
-  // 先把局部模板展开（多跑几轮，允许 partial 里再嵌 partial）
-  for (let i = 0; i < 5 && html.includes('{{>'); i += 1) {
-    const before = html;
-    html = html.replace(/\{\{>\s*([A-Za-z0-9_-]+)\s*\}\}/g, (m, name) => readPartial(name));
-    if (html === before) break;
-  }
+  let html = await loader(relPath);
+  html = await expandPartials(html);
 
   const cfg = db.publicConfig();
   const vars = {
@@ -88,9 +103,4 @@ function render(relPath, extra = {}) {
   return html;
 }
 
-/** 开发模式下清缓存，便于改模板立即生效 */
-function clearCache() {
-  cache.clear();
-}
-
-module.exports = { render, clearCache };
+module.exports = { render, setLoader };

@@ -7,13 +7,19 @@
  * 昵称全局唯一（数据库层 COLLATE NOCASE 唯一索引），防止冒充。
  */
 
-const express = require('express');
 const db = require('../db');
 const spam = require('../middleware/antispam');
 const u = require('../util');
 
-const router = express.Router();
 const { DAY, HOUR } = spam;
+
+/**
+ * 把玩家端 API 挂到传入的 router 上。
+ *
+ * 路由实现本身与宿主无关，所以 Node 传 Express Router、
+ * Cloudflare Workers 传 worker/mini-router.js，用的是同一份代码。
+ */
+module.exports = function mountPublicApi(router) {
 
 /* ------------------------------------------------------------------ *
  * 小工具
@@ -530,5 +536,4 @@ router.post(
     return u.ok(res, { voteCount: result.voteCount, voted: true });
   })
 );
-
-module.exports = router;
+};

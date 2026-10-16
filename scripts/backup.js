@@ -6,7 +6,7 @@ const path = require('node:path');
 const db = require('../src/db');
 const backup = require('../src/backup');
 
-db.init();
+require('../src/node-boot').boot();
 
 try {
   const r = backup.runBackup();

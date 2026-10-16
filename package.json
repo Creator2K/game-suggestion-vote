@@ -10,12 +10,17 @@
     "dev": "node --watch src/app.js",
     "backup": "node scripts/backup.js",
     "reset-password": "node scripts/reset-password.js",
-    "seed-demo": "node scripts/seed-demo.js"
+    "seed-demo": "node scripts/seed-demo.js",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy"
   },
   "engines": {
     "node": ">=22.5.0"
   },
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.0"
   }
 }

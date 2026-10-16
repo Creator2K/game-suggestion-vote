@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "game-suggestion-vote",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-16",
+
+  "observability": {
+    "enabled": true
+  },
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none"
+  },
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BOARD",
+        "class_name": "Board"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Board"]
+    }
+  ],
+
+  "vars": {
+    "SESSION_DAYS": "7",
+    "PBKDF2_ITERATIONS": "100000"
+  },
+
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  }
+}

@@ -9,10 +9,10 @@
  *  - 建议使用软删除（deleted_at），保留可追溯性。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
-const config = require('./config');
+/* 本文件与运行时无关：SQL 的实际执行交给 install() 注入的引擎。
+   Node    → src/engines/node-sqlite.js
+   Workers → worker/engines/do-sql.js
+   两边的业务代码因此共用同一份 SQL 与同一套封装。 */
 
 /* ------------------------------------------------------------------ *
  * 表结构
@@ -154,85 +154,64 @@ const DEFAULT_SETTINGS = {
  * 连接与查询封装
  * ------------------------------------------------------------------ */
 
-let db = null;
-const stmtCache = new Map();
+let engine = null;
 
-/** node:sqlite 只接受 null / number / bigint / string / Uint8Array，这里统一收口 */
+/** 注入数据引擎（见文件头的说明）。重复调用以最后一次为准。 */
+function install(e) {
+  if (!e || typeof e.all !== 'function') throw new Error('数据引擎不合法');
+  engine = e;
+  return engine;
+}
+
+function eng() {
+  if (!engine) throw new Error('数据层尚未初始化：请先调用 db.install(engine)');
+  return engine;
+}
+
+/** 引擎只接受 null / number / bigint / string / Uint8Array，这里统一收口 */
 function bindable(v) {
   if (v === undefined) return null;
   if (typeof v === 'boolean') return v ? 1 : 0;
   return v;
 }
 
-function stmt(sql) {
-  let s = stmtCache.get(sql);
-  if (!s) {
-    s = db.prepare(sql);
-    stmtCache.set(sql, s);
-  }
-  return s;
-}
-
 function all(sql, ...params) {
-  return stmt(sql).all(...params.map(bindable));
+  return eng().all(sql, params.map(bindable));
 }
 
 function get(sql, ...params) {
-  return stmt(sql).get(...params.map(bindable));
+  return eng().get(sql, params.map(bindable));
 }
 
 function run(sql, ...params) {
-  return stmt(sql).run(...params.map(bindable));
+  return eng().run(sql, params.map(bindable));
 }
 
-/** 事务包装。抛错自动回滚。 */
+function exec(sql) {
+  return eng().exec(sql);
+}
+
+/** 事务包装。抛错自动回滚。回调必须是同步的。 */
 function tx(fn) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const out = fn();
-    db.exec('COMMIT');
-    return out;
-  } catch (err) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {
-      /* 回滚失败时保留原始错误 */
-    }
-    throw err;
-  }
+  return eng().transaction(fn);
 }
 
 /* ------------------------------------------------------------------ *
  * 初始化
  * ------------------------------------------------------------------ */
 
-function init() {
-  fs.mkdirSync(config.DATA_DIR, { recursive: true });
-  fs.mkdirSync(config.UPLOAD_DIR, { recursive: true });
-
-  db = new DatabaseSync(config.DB_FILE);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA synchronous = NORMAL');
-  db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA busy_timeout = 5000');
-  db.exec(SCHEMA);
-
+/** 建表并补齐默认配置。引擎注入后调用，幂等。 */
+function migrate() {
+  exec(SCHEMA);
   seedSettings();
-  return db;
+  return module.exports;
 }
 
 function seedSettings() {
-  const insert = db.prepare(
-    'INSERT OR IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)'
-  );
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) insert.run(k, v);
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  const insert = `INSERT OR IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)`;
+  tx(() => {
+    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) run(insert, k, v);
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -343,24 +322,25 @@ function cleanup() {
 }
 
 function close() {
-  if (db) {
+  if (engine && typeof engine.close === 'function') {
     try {
-      db.close();
+      engine.close();
     } catch {
       /* 已关闭 */
     }
-    db = null;
-    stmtCache.clear();
   }
+  engine = null;
 }
 
 module.exports = {
-  init,
+  install,
+  migrate,
   close,
   tx,
   all,
   get,
   run,
+  exec,
   getSetting,
   setSetting,
   allSettings,
@@ -371,7 +351,8 @@ module.exports = {
   cleanup,
   safeJson,
   DEFAULT_SETTINGS,
+  /** 只有 Node 侧会用到（备份脚本走 VACUUM INTO） */
   get raw() {
-    return db;
+    return engine && engine.raw ? engine.raw : null;
   },
 };

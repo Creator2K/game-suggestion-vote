@@ -7,6 +7,10 @@ data/
 # 备份
 backups/
 
+# Cloudflare Workers 本地开发产生的状态（Durable Object 的 SQLite 等）
+.wrangler/
+.dev.vars
+
 # 日志
 *.log
 npm-debug.log*

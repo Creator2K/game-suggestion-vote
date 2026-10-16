@@ -1,5 +1,45 @@
 # 设计说明
 
+## 两个运行时
+
+同一套业务代码跑在两个差异很大的宿主上：
+
+```
+                 src/routes/*  src/middleware/*  src/db.js  src/util.js  src/template.js
+                        │            │              │           │            │
+        ┌───────────────┴────────────┴──────────────┴───────────┴────────────┴───────────────┐
+        │                    共用层（不含任何 node: 内置模块）                                │
+        └───────────────┬───────────────────────────────────────────┬───────────────────────┘
+                        │                                           │
+        ┌───────────────▼───────────────┐           ┌───────────────▼───────────────────────┐
+        │ Node：Express + node:sqlite    │           │ Workers：mini-router + DO SQLite      │
+        │ 截图写磁盘，模板读 public/     │           │ 截图进 DO，模板读 Static Assets       │
+        └───────────────────────────────┘           └───────────────────────────────────────┘
+```
+
+共用层不引用 `node:fs`、`node:sqlite`、`node:crypto`，也不 require Express，靠三个插槽把宿主差异注入进来：
+
+| 插槽 | Node 注入 | Workers 注入 |
+| --- | --- | --- |
+| 数据引擎 `db.install()` | `src/engines/node-sqlite.js` | `worker/engines/do-sql.js` |
+| 截图存储 `runtime.configure()` | `src/stores/fs.js`（写磁盘） | `worker/stores/do-blob.js`（BLOB 进 DO） |
+| 模板来源 `template.setLoader()` | `src/loaders/fs-views.js`（读 public/） | `worker/loaders/assets-views.js`（读 ASSETS 绑定） |
+
+数据引擎的接口只有 5 个方法（`all` / `get` / `run` / `exec` / `transaction`），两个实现各自吸收本宿主的怪癖：Node 侧管 prepared statement 缓存和 `BEGIN IMMEDIATE`，Workers 侧把事务交给 `ctx.storage.transactionSync()`，并用 `changes()` 而不是游标的 `rowsWritten` 来取受影响行数——后者会把 `ON CONFLICT DO NOTHING` 忽略掉的写入也算进去，用它判重复投票会漏判。
+
+**路由为什么能共用。** `src/routes/*.js` 导出的是一个「传入 router 的挂载函数」而不是 router 实例，Node 传 Express Router，Workers 传 `worker/mini-router.js`。这个兼容层只实现项目实际用到的那部分 Express：`get/post/put/patch/delete/use`、`req.body/query/params/headers/get()/ip`、`res.status()/json()/set()/append()/type()/send()`、`next()` 与 4 参数错误中间件。挂载在 build 时展开成一张扁平表，顺序不变；子路由里不带路径的 `use` 会被收窄成该前缀，否则 `requireAdmin` 会误伤所有路径。
+
+**为什么用单个 Durable Object 而不是 D1。** 原版是「一个进程 + 一个 SQLite 文件」，写操作天然串行、事务简单。DO 也是单实例串行执行，模型一致，所以数据层几乎原样搬得动；D1 是多写者的异步模型，要改的地方多得多。代价是所有请求排同一个实例，对建议投票站这个量级够用。
+
+**与 Workers 相关的几个取舍。**
+
+- 截图存进 DO 的 BLOB，不引入 R2：最多 8 张 2MB 的首页图，省一个服务也省一套权限。
+- 模板仍放在 `public/`，由 DO 通过 ASSETS 绑定内部读取（不走网络、不计请求数）。入口把 `*.html` 的直连请求挡成 404，避免别人抓到带 `{{占位符}}` 的原文。
+- 原来的 `setInterval` 清理改成 Cron Trigger（`0 3 * * *`）驱动 DO 的方法。
+- 备份换成平台自带的 30 天时间点恢复，`VACUUM INTO` 那套只在 Node 侧保留。
+- 口令哈希必须换掉：免费计划单次调用只有 10ms CPU，scrypt（N=16384）实测 29ms 会被掐断。换成 PBKDF2-SHA256，迭代次数写进哈希串（`pbkdf2-sha256$<次数>$<哈希>`），改参数不会让已有密码失效。实测 DO 里的调用不受那 10ms 限制，所以 100000 次迭代跑得动；真被限了就把 `PBKDF2_ITERATIONS` 调低。
+- Workers 上没法用命令行改数据库，另留了 `POST /api/admin/force-reset`，凭 `RESET_TOKEN` 改密码；令牌没配置时该接口返回 404。
+
 ## 数据模型
 
 SQLite，七张表。建表语句在 `src/db.js`。
@@ -82,7 +122,7 @@ SQLite，七张表。建表语句在 `src/db.js`。
 
 ### 后台 `/api/admin`
 
-公开三个：`/state` 查初始化状态，`/setup` 首次设置密码（仅未初始化时可用），`/login`。
+公开四个：`/state` 查初始化状态，`/setup` 首次设置密码（仅未初始化时可用），`/login`，以及凭重置令牌用的 `/force-reset`（未配置 `RESET_TOKEN` 时返回 404）。
 
 其余全部需要登录，写操作还要过 CSRF：
 
@@ -101,17 +141,17 @@ SQLite，七张表。建表语句在 `src/db.js`。
 
 ## 实现要点
 
-**后台鉴权。** 单一管理员密码，scrypt 加盐哈希存在 `settings` 里，比对用 `timingSafeEqual`。会话是随机 token 存表，通过 httpOnly + SameSite=Strict 的 Cookie 下发。
+**后台鉴权。** 单一管理员密码，PBKDF2-SHA256 加盐哈希存在 `settings` 里（迭代次数写在哈希串里），比对用定长比较。会话是随机 token 存表，通过 httpOnly + SameSite=Strict 的 Cookie 下发。（早期版本用 scrypt，为了在 Workers 免费计划上跑得动换掉了；老哈希认不出来，后台会明确提示去重置密码。）
 
 **CSRF。** SameSite 之外再加一道：写操作必须带 `x-csrf-token` 头，值等于会话 token。跨站表单设不了自定义请求头，这一道足够。
 
 **限频。** `ip_events` 记事件，查询时数时间窗口内的条数。只有操作成功后路由才写事件，所以失败的尝试不消耗额度。阈值从 `settings` 实时读，后台改完立即生效，不用重启。
 
-**IP 获取。** `TRUST_PROXY=1` 时 Express 会依据 `X-Forwarded-For` 填 `req.ip`。`::ffff:127.0.0.1` 这类 IPv4-mapped 地址会被还原成 `127.0.0.1`，否则同一个 IP 会因为连接方式不同被记成两个值。
+**IP 获取。** Node 侧 `TRUST_PROXY=1` 时 Express 会依据 `X-Forwarded-For` 填 `req.ip`；Workers 侧兼容层优先取 `CF-Connecting-IP`，本地开发退到 `X-Forwarded-For`，最后落到 `127.0.0.1`，保证限频在本地也能测。`::ffff:127.0.0.1` 这类 IPv4-mapped 地址会被还原成 `127.0.0.1`，否则同一个 IP 会因为连接方式不同被记成两个值。
 
-**模板。** `src/template.js` 是个几十行的实现，支持 `{{变量}}`（自动 HTML 转义）和 `{{> partial}}`（可嵌套）。站点文案在吐 HTML 时就注入，首页不会先闪默认文字再变。文件按 mtime 缓存。
+**模板。** `src/template.js` 是个几十行的实现，支持 `{{变量}}`（自动 HTML 转义）和 `{{> partial}}`（可嵌套）。站点文案在吐 HTML 时就注入，首页不会先闪默认文字再变。文件按 mtime 缓存——只对 Node 那个 loader 成立，Workers 侧模板随部署固定，直接进程内缓存。
 
-**备份。** `VACUUM INTO` 产生一致性快照，不用停服，也不会拷到写了一半的 WAL 数据。定时器靠「当天有没有备份文件」判断，重启不会重复备份。
+**备份。** Node 侧用 `VACUUM INTO` 产生一致性快照，不用停服，也不会拷到写了一半的 WAL 数据；定时器靠「当天有没有备份文件」判断，重启不会重复备份。Workers 侧交给平台的时间点恢复。
 
 **前端。** 无构建步骤。页面头部用 `<div id="boot" hidden data-xxx="{{...}}">` 接收服务端注入的配置，脚本通过 `dataset` 读取，省一次请求也避免闪烁。
 

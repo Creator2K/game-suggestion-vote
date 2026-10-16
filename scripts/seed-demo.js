@@ -13,7 +13,7 @@ const u = require('../src/util');
 
 const force = process.argv.includes('--force');
 
-db.init();
+require('../src/node-boot').boot();
 
 const existing = Number(db.get('SELECT COUNT(*) AS c FROM suggestions').c);
 if (existing > 0 && !force) {

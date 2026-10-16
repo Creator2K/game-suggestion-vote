@@ -48,5 +48,11 @@ module.exports = {
   /** 备份保留份数 */
   BACKUP_KEEP: intEnv('BACKUP_KEEP', 14),
 
+  /**
+   * 管理员密码重置令牌。设了才会开放 POST /api/admin/force-reset，
+   * 用于忘记密码时自救。不设就是关闭。
+   */
+  RESET_TOKEN: process.env.RESET_TOKEN || '',
+
   STARTED_AT: Date.now(),
 };

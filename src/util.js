@@ -2,13 +2,56 @@
 
 /**
  * 通用工具：校验、脱敏、密码哈希、响应封装。
+ *
+ * 密码用 PBKDF2-SHA256，走全局 WebCrypto——Node 22+ 与 Cloudflare Workers
+ * 都有这个 API，所以这一层不需要按宿主分叉。迭代次数写进哈希串里，
+ * 以后调参不会让老密码失效。
+ *
+ * 历史：早期版本用 node:crypto 的 scrypt。换成 PBKDF2 是因为 scrypt 在
+ * Workers 免费计划上会超出单次调用的 CPU 上限。老的 scrypt 哈希认不出来，
+ * 会直接判失败，需要重新设置管理员密码。
  */
-
-const crypto = require('node:crypto');
 
 /* ---------------------------- 时间 ---------------------------- */
 
 const now = () => Date.now();
+
+/* ---------------------------- 编码 ---------------------------- */
+
+const textEncoder = new TextEncoder();
+
+function bytesToHex(bytes) {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 1) out += bytes[i].toString(16).padStart(2, '0');
+  return out;
+}
+
+function hexToBytes(hex) {
+  const clean = String(hex);
+  const out = new Uint8Array(clean.length >> 1);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = Number.parseInt(clean.substr(i * 2, 2), 16);
+  }
+  return out;
+}
+
+function randomBytes(n) {
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  return b;
+}
+
+function randomHex(n) {
+  return bytesToHex(randomBytes(n));
+}
+
+/** 定长比较，避免用 === 泄漏时间差 */
+function timingSafeEqualHex(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 /* ---------------------------- IP ---------------------------- */
 
@@ -21,7 +64,7 @@ function normalizeIp(ip) {
   return v;
 }
 
-/** config.TRUST_PROXY 打开后，Express 已依据 X-Forwarded-For 填好 req.ip */
+/** 两个宿主都会把来源地址填进 req.ip：Node 由 Express 填，Workers 由兼容层填 */
 function clientIp(req) {
   return normalizeIp(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown');
 }
@@ -52,7 +95,6 @@ function normalizeNickname(v) {
  */
 function cleanText(v, maxLen) {
   let s = String(v == null ? '' : v);
-  // 去掉除 \n \t 外的控制字符
   s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
   s = s.replace(/\r\n?/g, '\n');
   s = s.replace(/\n{4,}/g, '\n\n\n');
@@ -79,33 +121,72 @@ function validateNickname(nickname) {
 
 /* ---------------------------- 密码 ---------------------------- */
 
-const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
+const KDF_LABEL = 'pbkdf2-sha256';
+const KDF_KEY_BITS = 256;
+const DEFAULT_ITERATIONS = 100000;
 
-function hashPassword(password, salt) {
-  const useSalt = salt || crypto.randomBytes(16).toString('hex');
-  const hash = crypto
-    .scryptSync(String(password), useSalt, SCRYPT.keylen, {
-      N: SCRYPT.N,
-      r: SCRYPT.r,
-      p: SCRYPT.p,
-      maxmem: 64 * 1024 * 1024,
-    })
-    .toString('hex');
-  return { salt: useSalt, hash };
+let iterations = DEFAULT_ITERATIONS;
+
+/**
+ * 调整 PBKDF2 迭代次数。Workers 免费计划每次调用只有 10ms CPU，
+ * 所以部署时会调低；次数写在哈希串里，不影响已存在的密码。
+ */
+function setKdfIterations(n) {
+  const v = Math.floor(Number(n));
+  if (Number.isFinite(v) && v >= 1000 && v <= 10000000) iterations = v;
+  return iterations;
 }
 
-function verifyPassword(password, salt, expectedHash) {
+async function derive(password, saltHex, iters) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(String(password)),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: hexToBytes(saltHex), iterations: iters, hash: 'SHA-256' },
+    key,
+    KDF_KEY_BITS
+  );
+  return bytesToHex(new Uint8Array(bits));
+}
+
+/** @returns {Promise<{salt: string, hash: string}>} */
+async function hashPassword(password, salt) {
+  const useSalt = salt || randomHex(16);
+  const hex = await derive(password, useSalt, iterations);
+  return { salt: useSalt, hash: `${KDF_LABEL}$${iterations}$${hex}` };
+}
+
+/**
+ * 判断哈希串是哪种格式。
+ * 老版本（scrypt）是 128 位十六进制，没有前缀；换成 PBKDF2 后认不出来，
+ * 后台靠这个给出「请重置密码」的明确提示，而不是含糊的「密码不正确」。
+ */
+function hashFormat(hash) {
+  const s = String(hash || '');
+  if (!s) return 'none';
+  if (s.startsWith(`${KDF_LABEL}$`)) return 'pbkdf2';
+  if (/^[0-9a-f]{128}$/i.test(s)) return 'scrypt';
+  return 'unknown';
+}
+
+async function verifyPassword(password, salt, expectedHash) {
   if (!salt || !expectedHash) return false;
+  const m = new RegExp(`^${KDF_LABEL}\\$(\\d+)\\$([0-9a-f]{64})$`, 'i').exec(String(expectedHash));
+  if (!m) return false;
+  const iters = Number(m[1]);
+  if (!Number.isFinite(iters) || iters < 1 || iters > 10000000) return false;
+
   let actual;
   try {
-    actual = hashPassword(password, salt).hash;
+    actual = await derive(password, salt, iters);
   } catch {
     return false;
   }
-  const a = Buffer.from(actual, 'hex');
-  const b = Buffer.from(expectedHash, 'hex');
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return timingSafeEqualHex(actual, m[2].toLowerCase());
 }
 
 /** 密码强度下限：至少 8 位，且不能全是同一种字符 */
@@ -119,11 +200,18 @@ function validateAdminPassword(pw) {
 
 /* ---------------------------- 令牌 ---------------------------- */
 
-const newToken = () => crypto.randomBytes(32).toString('base64url');
+function toBase64Url(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 1) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+const newToken = () => toBase64Url(randomBytes(32));
 const newId = () => crypto.randomUUID();
 
-function sha256(text) {
-  return crypto.createHash('sha256').update(String(text)).digest('hex');
+async function sha256(text) {
+  const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(String(text)));
+  return bytesToHex(new Uint8Array(digest));
 }
 
 /* ---------------------------- 响应 ---------------------------- */
@@ -171,6 +259,9 @@ module.exports = {
   validateAdminPassword,
   hashPassword,
   verifyPassword,
+  hashFormat,
+  setKdfIterations,
+  KDF_LABEL,
   newToken,
   newId,
   sha256,
@@ -179,4 +270,6 @@ module.exports = {
   wrap,
   escapeHtml,
   clampInt,
+  bytesToHex,
+  hexToBytes,
 };

@@ -19,7 +19,7 @@ const backup = require('./backup');
 
 /* ------------------------------ 初始化数据 ------------------------------ */
 
-db.init();
+require('./node-boot').boot();
 
 /* ------------------------------ Express ------------------------------ */
 
@@ -73,9 +73,9 @@ app.use('/uploads', express.static(config.UPLOAD_DIR, { maxAge: '7d', index: fal
 
 /** 渲染 HTML：即时注入站点配置，首屏文案不会闪 */
 function page(relPath, extra = {}) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
-      const html = template.render(relPath, extra);
+      const html = await template.render(relPath, extra);
       res.set('Cache-Control', 'no-store');
       res.type('html').send(html);
     } catch (err) {
@@ -124,8 +124,14 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-app.use('/api/admin', adminRoutes);
-app.use('/api', publicRoutes);
+/** 路由模块导出的是挂载函数，两个运行时各传各的 router 实现 */
+const publicApi = express.Router();
+publicRoutes(publicApi);
+app.use('/api', publicApi);
+
+const adminApi = express.Router();
+adminRoutes(adminApi);
+app.use('/api/admin', adminApi);
 
 /* ------------------------------ 兜底 ------------------------------ */
 
