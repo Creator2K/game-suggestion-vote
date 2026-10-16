@@ -33,7 +33,9 @@ function compilePath(pattern) {
       keys.push(name);
       return '([^/]+)';
     });
-  return { regex: new RegExp(`^${source}$`), keys };
+  // 与 Express 的非 strict 模式一致：/admin 也能匹配 /admin/
+  const tail = source.endsWith('/') ? '?' : '/?';
+  return { regex: new RegExp(`^${source}${tail}$`), keys };
 }
 
 /** 前缀匹配：/api 命中 /api 与 /api/x，但不命中 /apix */

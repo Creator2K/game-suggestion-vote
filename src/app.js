@@ -64,8 +64,19 @@ app.use('/api', express.json({ limit: '64kb' }));
 
 /* ------------------------------ 静态资源 ------------------------------ */
 
+/** 模板文件本身就放在 public/ 里，别让人把 {{占位符}} 直接抓走。Workers 入口拦得一样 */
+app.use((req, res, next) => {
+  if (!/\.html?$/i.test(req.path)) return next();
+  return res
+    .status(404)
+    .type('html')
+    .send('<!doctype html><meta charset="utf-8"><title>404</title><h1>404</h1>');
+});
+
 const staticOpts = {
   index: false,
+  // 目录不带斜杠时不要 301，直接交给页面路由，省一次跳转
+  redirect: false,
   etag: true,
   maxAge: config.NODE_ENV === 'production' ? '7d' : 0,
 };

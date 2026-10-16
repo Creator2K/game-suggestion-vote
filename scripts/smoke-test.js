@@ -615,11 +615,14 @@ async function main() {
       ['/admin/logs', 'admin', 'pager'],
     ];
 
+    const rendered = new Map();
+
     for (const [path, kind, marker] of pages) {
       // 后台页面要先登录才有内容，只有登录页是公开的
       const needAuth = kind === 'admin' && path !== '/admin/login';
       const res = await fetch(BASE + path, needAuth ? { headers: { cookie: adminCookie } } : undefined);
       const html = await res.text();
+      rendered.set(path, html);
       const leftover = (html.match(/\{\{[^}]*\}\}/g) || []).length;
       const missingPartial = html.includes('缺少局部模板');
       const hasMarker = html.includes(marker);
@@ -640,6 +643,28 @@ async function main() {
     const adminHtml = await (await fetch(BASE + '/admin', { headers: { cookie: adminCookie } })).text();
     check('后台页引用了后台 JS', adminHtml.includes('/admin/js/admin.js'));
     check('后台页没有站点页脚', !adminHtml.includes('footer__inner'));
+
+    // 模板原文件放在 public/ 里，不能被直接抓走（两个运行时都要 404）
+    const raw = await fetch(BASE + '/admin/index.html', { redirect: 'manual' });
+    check('模板原文件不暴露（404）', raw.status === 404, `status=${raw.status}`);
+
+    // 页面里引用的同源脚本/样式必须真的能取到。Workers 上 /admin/* 曾经整体
+    // 被当成页面路径转发给 Durable Object，后台脚本全部 404，页面只剩下骨架。
+    const refs = new Set();
+    for (const path of ['/', '/admin']) {
+      const html = rendered.get(path) || '';
+      for (const m of html.matchAll(/(?:src|href)="(\/[^"]+\.(?:js|css))"/g)) refs.add(m[1]);
+    }
+    const broken = [];
+    for (const ref of refs) {
+      const r = await fetch(BASE + ref, { redirect: 'manual' });
+      if (r.status !== 200) broken.push(`${ref}=${r.status}`);
+    }
+    check(
+      `页面引用的脚本/样式都能取到（${refs.size} 个）`,
+      refs.size > 0 && broken.length === 0,
+      broken.join(', ')
+    );
   }
 
   /* ------------------------------ 登出 ------------------------------ */
@@ -652,11 +677,17 @@ async function main() {
     // 登出后接口必须 401；后台页面本身也必须跳登录页，不能再把页面骨架发出去
     const after = await api('/api/admin/dashboard', { cookie: adminCookie });
     const gate = await fetch(BASE + '/admin/review', { redirect: 'manual' });
+    const slash = await fetch(BASE + '/admin/', { redirect: 'manual' });
     const loc = gate.headers.get('location') || '';
+    const loc2 = slash.headers.get('location') || '';
     check(
       '登出后接口 401 且后台页面跳登录页（302）',
-      after.status === 401 && (gate.status === 302 || gate.status === 303) && /\/admin\/login/.test(loc),
-      `api=${after.status} page=${gate.status} location=${loc}`
+      after.status === 401 &&
+        (gate.status === 302 || gate.status === 303) &&
+        /\/admin\/login/.test(loc) &&
+        (slash.status === 302 || slash.status === 303) &&
+        /\/admin\/login/.test(loc2),
+      `api=${after.status} page=${gate.status} ${loc} | ${slash.status} ${loc2}`
     );
   }
 

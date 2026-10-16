@@ -17,13 +17,25 @@ const APP_PATHS = new Set([
   '/done',
   '/mine',
   '/healthz',
+  // 后台页面逐个列出来。不能用 '/admin/' 前缀：/admin/js/ 下还有静态脚本，
+  // 一起丢给 Durable Object 的话那些脚本会 404。
+  '/admin',
+  '/admin/login',
+  '/admin/review',
+  '/admin/suggestions',
+  '/admin/completed',
+  '/admin/votes',
+  '/admin/players',
+  '/admin/bans',
+  '/admin/settings',
+  '/admin/logs',
 ]);
 
 function isAppPath(pathname) {
   if (pathname.startsWith('/api/')) return true;
   if (pathname.startsWith('/uploads/')) return true;
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) return true;
-  return APP_PATHS.has(pathname);
+  const p = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  return APP_PATHS.has(p);
 }
 
 function notFound() {
