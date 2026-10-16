@@ -265,3 +265,7 @@ backups/              自动备份
 ## 字体
 
 中文像素字用的是 [Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font)，SIL Open Font License 1.1，可以商用。许可证原文在 `public/fonts/OFL.txt`。
+
+## 许可
+
+代码用 MIT，见 [LICENSE](LICENSE)。字体走的是另一套许可，上面那行。

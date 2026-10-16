@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "像素风游戏建议收集与投票系统",
+  "license": "MIT",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
