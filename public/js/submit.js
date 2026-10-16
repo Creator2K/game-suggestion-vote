@@ -36,6 +36,14 @@
   fEmail.value = me.email || App.qs('email');
   fNickname.value = me.nickname || '';
 
+  // 邮箱域名白名单：有的话直接写在输入框下面，省得填完才被拒
+  const domainsText = boot.dataset.domains || '';
+  if (domainsText) {
+    const hint = App.$('#domain-hint');
+    hint.textContent = '目前只支持这些邮箱后缀：' + domainsText;
+    hint.hidden = false;
+  }
+
   if (!submitOpen) {
     App.$('#closed-box').hidden = false;
     App.$('#form-panel').classList.add('hidden');

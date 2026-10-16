@@ -33,7 +33,16 @@
 
   "vars": {
     "SESSION_DAYS": "7",
-    "PBKDF2_ITERATIONS": "100000"
+    "PBKDF2_ITERATIONS": "100000",
+    // AI 一键审核用的模型，换模型不用改代码。
+    // 注意：glm-4.7-flash、qwen3 这类会把答案放进 tool_calls 的模型用不了（正文是 null）
+    "AI_EMBED_MODEL": "@cf/baai/bge-m3",
+    "AI_CHAT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+  },
+
+  // Workers AI：后台「AI 一键审核」用（embedding 找相似 + 对话模型确认是否重复）
+  "ai": {
+    "binding": "AI"
   },
 
   "triggers": {

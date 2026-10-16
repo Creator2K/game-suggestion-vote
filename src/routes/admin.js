@@ -12,6 +12,7 @@ const db = require('../db');
 const runtime = require('../runtime');
 const u = require('../util');
 const adminAuth = require('../middleware/admin');
+const aiReview = require('../ai/review');
 const { requireAdmin, requireCsrf } = adminAuth;
 
 /**
@@ -82,6 +83,10 @@ const SETTING_KEYS = [
   'max_title_len',
   'max_body_len',
   'vote_rank_mode',
+  'allowed_email_domains',
+  'ai_review_enabled',
+  'ai_retrieve_min',
+  'ai_batch_size',
 ];
 
 /** 逐项校验后台提交的设置；返回 [清洗后的键值对, 错误信息] */
@@ -191,6 +196,44 @@ function sanitizeSettings(input) {
         out[key] = raw === 'newest' ? 'newest' : 'votes';
         break;
 
+      case 'allowed_email_domains': {
+        const list = u.parseDomainList(raw);
+        if (list.length > u.MAX_DOMAINS) {
+          errors.push(`邮箱域名最多 ${u.MAX_DOMAINS} 个`);
+          break;
+        }
+        const bad = u.validateDomainList(list);
+        if (bad) {
+          errors.push(bad);
+          break;
+        }
+        out[key] = list.join(',');
+        break;
+      }
+
+      case 'ai_review_enabled':
+        out[key] = raw === true || raw === '1' || raw === 1 || raw === 'true' ? '1' : '0';
+        break;
+
+      case 'ai_retrieve_min': {
+        const text = String(raw == null ? '' : raw).trim();
+        if (!text) {
+          out[key] = ''; // 留空＝跟随判定器默认值
+          break;
+        }
+        const n = Number(text);
+        if (!Number.isFinite(n)) {
+          errors.push('相似度门槛要填数字，或者留空');
+          break;
+        }
+        out[key] = String(Math.min(0.95, Math.max(0.5, n)).toFixed(2));
+        break;
+      }
+
+      case 'ai_batch_size':
+        out[key] = String(u.clampInt(raw, 1, 30, 10));
+        break;
+
       default:
         break;
     }
@@ -234,6 +277,10 @@ function adminMapSuggestion(row) {
     doneAt: row.done_at ? Number(row.done_at) : null,
     editedAt: row.edited_at ? Number(row.edited_at) : null,
     deletedAt: row.deleted_at ? Number(row.deleted_at) : null,
+    // AI 审核留下的标记（见 src/ai/review.js）
+    aiFlag: row.ai_flag || null,
+    aiNote: row.ai_note || null,
+    aiAt: row.ai_at ? Number(row.ai_at) : null,
   };
 }
 
@@ -1331,5 +1378,90 @@ router.post('/cleanup', (req, res) => {
   db.cleanup();
   db.logAudit({ action: 'maintenance.cleanup', ip: u.clientIp(req) });
   u.ok(res);
+});
+
+/* ------------------------------------------------------------------ *
+ * AI 一键审核
+ *
+ * 流程：点一下 → 按 id 顺序扫一批待审建议 → 每条先判垃圾、再找重复 →
+ * 有把握的直接拒绝并留档，没把握的只出候选 → 报告里可逐条/整轮撤销。
+ * 详情见 src/ai/review.js。整轮的动作都挂在 batch 上，撤销就是按 batch 回滚。
+ * ------------------------------------------------------------------ */
+
+/** 当前判定器、门槛、还剩多少条待审 */
+router.get('/ai/state', (req, res) => {
+  const provider = aiReview.providerInfo();
+  const pendingRow = db.get(
+    `SELECT COUNT(*) AS c FROM suggestions WHERE status = 'pending' AND deleted_at IS NULL`
+  );
+  const batches = aiReview.recentBatches(5);
+  u.ok(res, {
+    provider,
+    pending: Number(pendingRow ? pendingRow.c : 0),
+    batches,
+    lastBatch: batches.length ? batches[0] : null,
+  });
+});
+
+/** 跑一批（没跑完的话，再点一次会接着上一轮继续） */
+router.post(
+  '/ai/run',
+  u.wrap(async (req, res) => {
+    const result = await aiReview.runBatch({ actor: 'admin', ip: u.clientIp(req) });
+    u.ok(res, result);
+  })
+);
+
+/** 某一轮的报告；不传 batch 就是最近一轮 */
+router.get('/ai/report', (req, res) => {
+  const batchId = Number(req.query.batch) || 0;
+  const rep = aiReview.report(batchId || null);
+  if (!rep) {
+    return u.ok(res, { batch: null, actions: [], counts: { applied: 0, candidate: 0, dismissed: 0, undone: 0, banHint: 0 }, provider: aiReview.providerInfo() });
+  }
+  u.ok(res, rep);
+});
+
+/** 撤销一条已执行的判定 */
+router.post('/ai/undo', (req, res) => {
+  const r = aiReview.undoAction((req.body || {}).actionId);
+  if (r.error) return u.fail(res, r.error, r.status || 400);
+  db.logAudit({
+    action: 'ai.undo',
+    targetType: 'suggestion',
+    targetId: r.suggestionId,
+    ip: u.clientIp(req),
+  });
+  u.ok(res, r);
+});
+
+/** 撤销一整轮 */
+router.post('/ai/undo-batch', (req, res) => {
+  const batchId = Number((req.body || {}).batchId) || 0;
+  if (!batchId) return u.fail(res, '缺少批次号', 400);
+  const r = aiReview.undoBatch(batchId);
+  db.logAudit({
+    action: 'ai.undoBatch',
+    targetType: 'batch',
+    targetId: batchId,
+    detail: { undone: r.undone, skipped: r.skipped.length },
+    ip: u.clientIp(req),
+  });
+  u.ok(res, r);
+});
+
+/** 处理候选：reject 照 AI 的判断拒绝，keep 保留（清掉标记，之后不再提示） */
+router.post('/ai/resolve', (req, res) => {
+  const body = req.body || {};
+  const decision = body.decision === 'reject' ? 'reject' : 'keep';
+  const r = aiReview.resolveCandidate(body.actionId, decision);
+  if (r.error) return u.fail(res, r.error, r.status || 400);
+  db.logAudit({
+    action: decision === 'reject' ? 'ai.candidateReject' : 'ai.candidateKeep',
+    targetType: 'suggestion',
+    targetId: r.suggestionId,
+    ip: u.clientIp(req),
+  });
+  u.ok(res, r);
 });
 };

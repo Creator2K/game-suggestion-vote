@@ -25,6 +25,11 @@ const state = {
    * 留空即关闭该入口。
    */
   resetToken: '',
+  /**
+   * AI 判定器（见 src/ai/）。Workers 上由 Durable Object 注入 env.AI；
+   * 本机 Node 没有绑定，留空即退化成字符相似度的本地规则。
+   */
+  ai: null,
 };
 
 function configure(opts = {}) {
@@ -34,6 +39,7 @@ function configure(opts = {}) {
   }
   if (opts.screenshotStore) state.screenshotStore = opts.screenshotStore;
   if (opts.resetToken != null) state.resetToken = String(opts.resetToken);
+  if (opts.ai !== undefined) state.ai = opts.ai || null;
   return state;
 }
 
@@ -46,6 +52,10 @@ function screenshots() {
 module.exports = {
   configure,
   screenshots,
+  /** 取 AI 判定器；没注入返回 null，调用方自己退化成本地规则 */
+  ai() {
+    return state.ai;
+  },
   get sessionDays() {
     return state.sessionDays;
   },

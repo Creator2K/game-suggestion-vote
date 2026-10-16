@@ -89,6 +89,8 @@ async function render(relPath, extra = {}) {
     maxTitleLen: String(cfg.maxTitleLen),
     maxBodyLen: String(cfg.maxBodyLen),
     voteRankMode: cfg.voteRankMode,
+    // 邮箱域名白名单的展示文案，空字符串表示不限制
+    emailDomainsText: cfg.allowedEmailDomains.join('、'),
     active: '',
     pageTitle: '',
     ...extra,

@@ -10,6 +10,7 @@
     'hero_sub',
     'announcement',
     'footer_text',
+    'allowed_email_domains',
   ];
   const NUM_KEYS = [
     'rate_vote_per_hour',
@@ -18,7 +19,21 @@
     'rate_newplayer_per_day_ip',
     'max_title_len',
     'max_body_len',
+    'ai_batch_size',
   ];
+
+  /** 常用邮箱，一键填进去 */
+  const DOMAIN_PRESET = [
+    'qq.com',
+    '163.com',
+    '126.com',
+    'foxmail.com',
+    'sina.com',
+    'gmail.com',
+    'outlook.com',
+    'hotmail.com',
+    'icloud.com',
+  ].join(', ');
 
   let categories = [];
   let screenshots = [];
@@ -186,6 +201,8 @@
     App.$('#submit_open').checked = settings.submit_open === '1';
     App.$('#vote_open').checked = settings.vote_open === '1';
     App.$('#vote_rank_mode').value = settings.vote_rank_mode || 'votes';
+    App.$('#ai_review_enabled').checked = settings.ai_review_enabled !== '0';
+    App.$('#ai_retrieve_min').value = settings.ai_retrieve_min || '';
 
     try {
       categories = JSON.parse(settings.categories || '[]');
@@ -214,6 +231,8 @@
     body.submit_open = App.$('#submit_open').checked ? '1' : '0';
     body.vote_open = App.$('#vote_open').checked ? '1' : '0';
     body.vote_rank_mode = App.$('#vote_rank_mode').value;
+    body.ai_review_enabled = App.$('#ai_review_enabled').checked ? '1' : '0';
+    body.ai_retrieve_min = App.$('#ai_retrieve_min').value.trim();
     body.categories = categories;
     body.screenshots = screenshots;
 
@@ -234,6 +253,19 @@
   }
 
   App.$('#save-btn').addEventListener('click', save);
+
+  /* ============================ 邮箱白名单 ============================ */
+
+  App.$('#domain-preset').addEventListener('click', function () {
+    const box = App.$('#allowed_email_domains');
+    box.value = DOMAIN_PRESET;
+    App.ok('已填入常用邮箱，记得点右上角保存');
+  });
+
+  App.$('#domain-clear').addEventListener('click', function () {
+    App.$('#allowed_email_domains').value = '';
+    App.ok('已清空，保存后任何邮箱都能注册');
+  });
 
   /* ============================ 改密码 ============================ */
 

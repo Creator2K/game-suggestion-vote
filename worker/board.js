@@ -8,6 +8,7 @@ import appModule from './app.js';
 import doSqlModule from './engines/do-sql.js';
 import doBlobModule from './stores/do-blob.js';
 import assetsViewsModule from './loaders/assets-views.js';
+import workersAiModule from '../src/ai/providers/workers-ai.js';
 
 const db = dbModule;
 const runtime = runtimeModule;
@@ -17,6 +18,7 @@ const { createApp } = appModule;
 const doSql = doSqlModule;
 const doBlob = doBlobModule;
 const assetsViews = assetsViewsModule;
+const workersAi = workersAiModule;
 
 /**
  * 整个站点只有一个 Durable Object 实例（名字固定为 "board"）。
@@ -41,6 +43,13 @@ export class Board extends DurableObject {
         sessionDays: Number(env.SESSION_DAYS) || 7,
         screenshotStore: doBlob.create(db),
         resetToken: env.RESET_TOKEN || '',
+        // 有 AI 绑定就用 Workers AI，没有（或本机 Node）就留空走本地规则
+        ai: env.AI
+          ? workersAi.create(env.AI, {
+              embedModel: env.AI_EMBED_MODEL,
+              chatModel: env.AI_CHAT_MODEL,
+            })
+          : null,
       });
     });
 

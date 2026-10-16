@@ -112,6 +112,7 @@ const ADMIN_PAGES = {
   '/admin/bans': ['admin/bans.html', { active: 'bans', pageTitle: '封禁名单' }],
   '/admin/settings': ['admin/settings.html', { active: 'settings', pageTitle: '站点设置' }],
   '/admin/logs': ['admin/logs.html', { active: 'logs', pageTitle: '操作日志' }],
+  '/admin/ai': ['admin/ai.html', { active: 'ai', pageTitle: 'AI 审核' }],
 };
 
 function page(relPath, extra) {

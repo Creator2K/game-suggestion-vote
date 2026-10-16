@@ -13,6 +13,14 @@
   const voteOpen = boot.dataset.voteOpen === '1';
   const rankMode = boot.dataset.rankMode || 'votes';
 
+  // 邮箱域名白名单：有的话直接写出来，省得填完才被拒
+  const domainsText = boot.dataset.domains || '';
+  if (domainsText) {
+    const hint = App.$('#domain-hint');
+    hint.textContent = '目前只支持这些邮箱后缀：' + domainsText;
+    hint.hidden = false;
+  }
+
   const listBox = App.$('#list');
   const pagerBox = App.$('#pager');
   const chipsBox = App.$('#chips');

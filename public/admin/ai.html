@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{{> admin-head}}
+<title>AI 审核 · 后台</title>
+</head>
+<body class="admin">
+{{> admin-nav}}
+
+<main class="admin__main">
+  <header class="admin__bar">
+    <h1 class="admin__title">AI 审核</h1>
+    <div class="spacer"></div>
+    <span class="fs1 muted" id="provider-text"></span>
+    <button class="px-btn px-btn--sm px-btn--primary" type="button" id="run-btn">开始一键审核</button>
+  </header>
+
+  <div class="admin__body">
+
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">一键审核做什么</h2>
+        <span class="fs1 muted">判定完可以逐条或整轮撤销</span>
+      </div>
+      <div class="px-panel">
+        <ol class="fs1" style="margin:0 0 14px 18px;padding:0;line-height:1.9">
+          <li>和<b>已实现</b>的建议重复 → 直接拒绝，理由写明是哪一条；</li>
+          <li>和<b>投票中</b>的建议重复 → 直接拒绝，让玩家去给那条投票；</li>
+          <li>和<b>更早提交的待审</b>重复 → 保留早的，拒绝晚的；</li>
+          <li>和<b>已拒绝／已删除</b>的相似 → 只列成候选，拒不拒由你点；</li>
+          <li>无意义内容、广告、疑似机器人 → 拒绝并打上标记。</li>
+        </ol>
+        <p class="fs1 muted" style="margin:0 0 12px">
+          不会自动封禁任何人：疑似机器人只会进候选，封禁按钮在你的手里。
+          没把握的一律降级成候选，不会替你下判断。
+        </p>
+        <div class="row row--wrap" style="gap:20px">
+          <span class="fs1 muted">待审 <b id="pending-count">0</b> 条</span>
+          <span class="fs1 muted">每批 <b id="batch-size">10</b> 条</span>
+          <span class="fs1 muted">相似度门槛 <b id="retrieve-min">—</b></span>
+          <span class="fs1 muted">自动处理 <b id="auto-state">—</b></span>
+        </div>
+        <div class="fs1" id="progress" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">本轮结果</h2>
+        <span class="fs1 muted" id="report-meta"></span>
+        <div class="spacer"></div>
+        <button class="px-btn px-btn--sm" type="button" id="refresh-btn">刷新</button>
+        <button class="px-btn px-btn--sm px-btn--danger" type="button" id="undo-all-btn">撤销整轮</button>
+      </div>
+      <div class="table-wrap">
+        <table class="px-table admin-table">
+          <thead>
+            <tr>
+              <th style="width:64px">编号</th>
+              <th>建议</th>
+              <th style="width:140px">判定</th>
+              <th style="width:180px">依据</th>
+              <th>理由</th>
+              <th style="width:250px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section__head">
+        <h2 class="section__title">历史批次</h2>
+        <span class="fs1 muted">每一轮都留档，撤销按轮回滚</span>
+      </div>
+      <div class="table-wrap">
+        <table class="px-table admin-table">
+          <thead>
+            <tr>
+              <th style="width:70px">批次</th>
+              <th style="width:150px">时间</th>
+              <th style="width:190px">判定器</th>
+              <th style="width:230px">结果</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="batch-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+{{> toasts}}
+
+<script src="/js/common.js"></script>
+<script src="/admin/js/admin.js"></script>
+<script src="/admin/js/ai.js"></script>
+</body>
+</html>

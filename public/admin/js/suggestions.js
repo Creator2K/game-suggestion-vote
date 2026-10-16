@@ -19,6 +19,14 @@
     { key: 'all', label: '全部' },
   ];
 
+  /** AI 标记的中文名，对应 src/ai/review.js 里的 flag */
+  const AI_FLAG_LABEL = {
+    duplicate: '疑似重复',
+    junk: '无意义内容',
+    ad: '广告引流',
+    bot: '疑似机器人',
+  };
+
   const state = {
     status: App.qs('status', 'pending') || 'pending',
     q: App.qs('q', ''),
@@ -90,6 +98,14 @@
         App.el('a', { class: 'cell-title', href: '#', text: item.title }),
         item.deletedAt ? App.el('span', { class: 'cell-sub', text: '已删除 · ' + App.fmtDate(item.deletedAt) }) : null,
         item.editedAt ? App.el('span', { class: 'cell-sub', text: '编辑过 · ' + App.fmtDate(item.editedAt) }) : null,
+        // AI 审核留下的标记：一眼看出这条为什么被处理/待确认
+        item.aiFlag
+          ? App.el('span', {
+              class: 'cell-sub',
+              style: 'color:var(--c-gold)',
+              text: 'AI：' + (AI_FLAG_LABEL[item.aiFlag] || item.aiFlag) + (item.aiNote ? ' · ' + item.aiNote : ''),
+            })
+          : null,
       ]);
       App.$('a', titleCell).addEventListener('click', function (ev) {
         ev.preventDefault();

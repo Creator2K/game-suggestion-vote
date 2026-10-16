@@ -45,7 +45,10 @@ CREATE TABLE IF NOT EXISTS suggestions (
   reviewed_at   INTEGER,
   done_at       INTEGER,
   edited_at     INTEGER,
-  deleted_at    INTEGER
+  deleted_at    INTEGER,
+  ai_flag       TEXT,
+  ai_note       TEXT,
+  ai_at         INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_sug_status  ON suggestions(status, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_sug_rank    ON suggestions(status, deleted_at, vote_count DESC, created_at ASC);
@@ -108,6 +111,52 @@ CREATE TABLE IF NOT EXISTS bans (
   created_at INTEGER NOT NULL,
   UNIQUE(kind, value)
 );
+
+-- AI 审核：一轮一批，方便整轮回滚
+CREATE TABLE IF NOT EXISTS ai_review_batches (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at  INTEGER NOT NULL,
+  finished_at INTEGER,
+  source      TEXT,
+  model       TEXT,
+  scanned     INTEGER NOT NULL DEFAULT 0,
+  acted       INTEGER NOT NULL DEFAULT 0,
+  failed      INTEGER NOT NULL DEFAULT 0,
+  remaining   INTEGER NOT NULL DEFAULT 0,
+  cursor_id   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_ai_batch_started ON ai_review_batches(started_at);
+
+-- AI 审核：每一条动作都留档，撤销全靠它
+CREATE TABLE IF NOT EXISTS ai_review_actions (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  batch_id      INTEGER NOT NULL,
+  suggestion_id INTEGER NOT NULL,
+  action        TEXT    NOT NULL,
+  rule          TEXT,
+  target_id     INTEGER,
+  reason        TEXT,
+  confidence    REAL,
+  source        TEXT,
+  status        TEXT    NOT NULL DEFAULT 'applied',
+  ban_hint      INTEGER NOT NULL DEFAULT 0,
+  prev_status   TEXT,
+  prev_flag     TEXT,
+  created_at    INTEGER NOT NULL,
+  resolved_at   INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_ai_act_batch ON ai_review_actions(batch_id);
+CREATE INDEX IF NOT EXISTS idx_ai_act_sug   ON ai_review_actions(suggestion_id);
+
+-- 建议的向量：b64 是 Float32 小端的 base64，跨两个运行时都能存
+CREATE TABLE IF NOT EXISTS ai_vectors (
+  suggestion_id INTEGER PRIMARY KEY,
+  model         TEXT    NOT NULL,
+  dim           INTEGER NOT NULL,
+  b64           TEXT    NOT NULL,
+  fingerprint   TEXT    NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
 `;
 
 /* ------------------------------------------------------------------ *
@@ -148,6 +197,19 @@ const DEFAULT_SETTINGS = {
 
   // 排行榜默认排序：votes | newest
   vote_rank_mode: 'votes',
+
+  // 只允许这些邮箱后缀注册/操作；留空表示不限制。形如 qq.com,163.com
+  allowed_email_domains: '',
+
+  // AI 一键审核（见 src/ai/）
+  // ai_review_enabled=0 时只出候选报告，不做任何自动处理
+  ai_review_enabled: '1',
+  // 相似度门槛。留空表示跟随判定器的默认值：
+  //   Workers AI 用向量余弦（0.78），本地规则用字符重合度（0.60），两者尺度不一样
+  ai_retrieve_min: '',
+  // 一次点「AI 一键审核」处理多少条待审建议。每条要花 1~3 次模型调用，
+  // 所以默认小一点、多点几次，界面会自动接着跑
+  ai_batch_size: '10',
 };
 
 /* ------------------------------------------------------------------ *
@@ -203,8 +265,27 @@ function tx(fn) {
 /** 建表并补齐默认配置。引擎注入后调用，幂等。 */
 function migrate() {
   exec(SCHEMA);
+  migrateColumns();
   seedSettings();
   return module.exports;
+}
+
+/**
+ * 老库补列。SQLite 没有 ADD COLUMN IF NOT EXISTS，重复执行会报错，
+ * 直接吞掉即可——两个运行时的引擎都会抛同样的错。
+ */
+function addColumn(table, column, type) {
+  try {
+    exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  } catch {
+    /* 字段已经在了 */
+  }
+}
+
+function migrateColumns() {
+  addColumn('suggestions', 'ai_flag', 'TEXT');
+  addColumn('suggestions', 'ai_note', 'TEXT');
+  addColumn('suggestions', 'ai_at', 'INTEGER');
 }
 
 function seedSettings() {
@@ -232,6 +313,14 @@ function setSetting(key, value) {
   );
 }
 
+/** 邮箱域名白名单（已规范化成逗号分隔）；空数组表示不限制 */
+function emailDomains() {
+  return String(getSetting('allowed_email_domains', '') || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
 function allSettings() {
   const out = {};
   for (const row of all('SELECT setting_key, setting_value FROM settings')) {
@@ -257,6 +346,8 @@ function publicConfig() {
     maxTitleLen: Number(s.max_title_len) || 60,
     maxBodyLen: Number(s.max_body_len) || 500,
     voteRankMode: s.vote_rank_mode || 'votes',
+    // 邮箱域名白名单（空数组表示不限制）
+    allowedEmailDomains: emailDomains(),
   };
 }
 
@@ -344,6 +435,7 @@ module.exports = {
   getSetting,
   setSetting,
   allSettings,
+  emailDomains,
   publicConfig,
   recountSuggestion,
   recountAll,

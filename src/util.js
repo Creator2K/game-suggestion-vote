@@ -119,6 +119,48 @@ function validateNickname(nickname) {
   return null;
 }
 
+/* ---------------------------- 邮箱域名白名单 ---------------------------- */
+
+/** 单个域名：字母数字开头结尾，允许中间有连字符和点，至少一级点 */
+const DOMAIN_RE = /^(?=.{1,100}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
+/** 白名单条数上限（够用即可，防止有人塞几千条进来） */
+const MAX_DOMAINS = 50;
+
+/** 把后台填的一串域名（逗号、空格、换行、分号分隔）清洗成数组 */
+function parseDomainList(raw) {
+  return [
+    ...new Set(
+      String(raw == null ? '' : raw)
+        .split(/[\s,;，；、]+/)
+        .map((x) => x.trim().toLowerCase().replace(/^@+/, '').replace(/^https?:\/\//, '').replace(/\/.*$/, ''))
+        .filter(Boolean)
+    ),
+  ].slice(0, MAX_DOMAINS);
+}
+
+/** 检查域名项本身是否合法；返回错误描述或 null */
+function validateDomainList(list) {
+  for (const d of list) {
+    if (!DOMAIN_RE.test(d)) return `「${d}」不像一个邮箱域名`;
+  }
+  return null;
+}
+
+/** 邮箱是否落在白名单内；白名单为空表示不限制 */
+function emailDomainAllowed(email, list) {
+  if (!list || !list.length) return true;
+  const at = String(email || '').lastIndexOf('@');
+  if (at < 0) return false;
+  const domain = String(email).slice(at + 1).toLowerCase();
+  return list.some((d) => domain === d || domain.endsWith(`.${d}`));
+}
+
+/** 白名单的展示文案：qq.com、163.com、gmail.com */
+function domainListText(list) {
+  return (list || []).join('、');
+}
+
 /* ---------------------------- 密码 ---------------------------- */
 
 const KDF_LABEL = 'pbkdf2-sha256';
@@ -256,6 +298,11 @@ module.exports = {
   cleanText,
   validateEmail,
   validateNickname,
+  parseDomainList,
+  validateDomainList,
+  emailDomainAllowed,
+  domainListText,
+  MAX_DOMAINS,
   validateAdminPassword,
   hashPassword,
   verifyPassword,

@@ -75,7 +75,16 @@ function resolvePlayer(req, { email, nickname }) {
     return { player: existing, isNew: false };
   }
 
-  // —— 新邮箱：需要昵称 ——
+  // —— 新邮箱：先看域名白名单，再要求昵称 ——
+  // 白名单只拦新注册：已经有档的玩家不受影响，免得规则一改就把老玩家锁在门外
+  const domains = db.emailDomains();
+  if (!u.emailDomainAllowed(cleanEmail, domains)) {
+    return {
+      error: `这个邮箱暂时收不了，只支持 ${u.domainListText(domains)} 的邮箱`,
+      domainBlocked: true,
+    };
+  }
+
   const nick = u.normalizeNickname(nickname);
   const nickErr = u.validateNickname(nick);
   if (nickErr) return { error: nickErr, needNickname: true };

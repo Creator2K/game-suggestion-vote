@@ -613,6 +613,7 @@ async function main() {
       ['/admin/bans', 'admin', 'add-btn'],
       ['/admin/settings', 'admin', 'cat-list'],
       ['/admin/logs', 'admin', 'pager'],
+      ['/admin/ai', 'admin', 'run-btn'],
     ];
 
     const rendered = new Map();
@@ -667,9 +668,209 @@ async function main() {
     );
   }
 
+  /* ------------------------------ 邮箱域名白名单 ------------------------------ */
+
+  section('13. 邮箱域名白名单');
+  {
+    const tag = uid.slice(-4);
+
+    // 先在没白名单的时候建一个档，稍后验证「老玩家不受影响」。
+    // 用已有的 emailA，省一个新注册名额（每 IP 每天的新玩家数是有限额的）
+    const oldEmail = emailA;
+    const before = await api('/api/submit', {
+      method: 'POST',
+      body: {
+        email: oldEmail,
+        category: '玩法',
+        title: `白名单之前提的${tag}`,
+        body: '这条是在设置白名单之前提交的，之后应该还能继续用。',
+      },
+    });
+    check('没设白名单时不限制邮箱域名', before.status === 200, before.text.slice(0, 140));
+
+    const bad = await api('/api/admin/settings', {
+      method: 'PUT',
+      cookie: adminCookie,
+      csrf,
+      body: { allowed_email_domains: 'qq.com, 这不是域名!!' },
+    });
+    check('非法邮箱域名被拒（400）', bad.status === 400, `status=${bad.status} ${bad.text.slice(0, 120)}`);
+
+    const ok = await api('/api/admin/settings', {
+      method: 'PUT',
+      cookie: adminCookie,
+      csrf,
+      body: { allowed_email_domains: 'qq.com, 163.com, @gmail.com' },
+    });
+    check(
+      '白名单保存并被规范化（去空格、去 @）',
+      ok.status === 200 && ok.json?.settings?.allowed_email_domains === 'qq.com,163.com,gmail.com',
+      `${ok.status} ${ok.json?.settings?.allowed_email_domains}`
+    );
+
+    const cfg = await api('/api/config');
+    check(
+      '配置接口带出白名单（前端要显示提示）',
+      Array.isArray(cfg.json?.config?.allowedEmailDomains) && cfg.json.config.allowedEmailDomains.length === 3,
+      JSON.stringify(cfg.json?.config?.allowedEmailDomains)
+    );
+
+    const blocked = await api('/api/submit', {
+      method: 'POST',
+      body: {
+        email: `junk-${uid}@mailinator.com`,
+        nickname: `乱域名${tag}`,
+        category: '玩法',
+        title: `乱域名不该进来${tag}`,
+        body: '用乱七八糟的邮箱域名注册的新玩家应该被挡在门外。',
+      },
+    });
+    check('白名单之外的新邮箱被拒（400）', blocked.status === 400, `status=${blocked.status}`);
+    check('错误信息说明了支持哪些后缀', /qq\.com/.test(blocked.text) && /邮箱/.test(blocked.text), blocked.text.slice(0, 140));
+
+    const pass = await api('/api/submit', {
+      method: 'POST',
+      body: {
+        email: `ok-${uid}@qq.com`,
+        nickname: `域名OK${tag}`,
+        category: '玩法',
+        title: `白名单内的邮箱可以提${tag}`,
+        body: '这是允许的域名，应该能正常提交成功才是。',
+      },
+    });
+    check('白名单之内的新邮箱可以提交', pass.status === 200, pass.text.slice(0, 140));
+
+    const again = await api('/api/submit', {
+      method: 'POST',
+      body: {
+        email: emailB,
+        category: '玩法',
+        title: `老玩家再提一条${tag}`,
+        body: '已经建过档的邮箱不该被新加的白名单挡住。',
+      },
+    });
+    check('已建过档的玩家不受白名单影响', again.status === 200, again.text.slice(0, 140));
+
+    const clear = await api('/api/admin/settings', {
+      method: 'PUT',
+      cookie: adminCookie,
+      csrf,
+      body: { allowed_email_domains: '' },
+    });
+    check(
+      '白名单可以清空（恢复不限制）',
+      clear.status === 200 && clear.json?.settings?.allowed_email_domains === '',
+      `${clear.status} ${clear.json?.settings?.allowed_email_domains}`
+    );
+  }
+
+  /* ------------------------------ AI 一键审核 ------------------------------ */
+
+  section('14. AI 一键审核');
+  {
+    const tag = uid.slice(-4);
+    const titleDup = `烟测联机四人${tag}`;
+    const bodyDup = '想和朋友一起玩，四个人组队才有意思，一个人玩太无聊了。';
+    const titleDone = `烟测皮肤商店${tag}`;
+    const bodyDone = '想要一个皮肤商店，金币可以买皮肤，这样玩起来有目标。';
+
+    const s1 = await api('/api/submit', {
+      method: 'POST',
+      body: { email: emailA, category: '玩法', title: titleDup, body: bodyDup },
+    });
+    const s2 = await api('/api/submit', {
+      method: 'POST',
+      body: { email: emailB, category: '玩法', title: titleDup, body: bodyDup },
+    });
+    check('两条同标题建议都提交成功', s1.status === 200 && s2.status === 200, `${s1.status}/${s2.status}`);
+    const idEarly = s1.json?.id;
+    const idLate = s2.json?.id;
+
+    const d1 = await api('/api/submit', {
+      method: 'POST',
+      body: { email: emailA, category: '玩法', title: titleDone, body: bodyDone },
+    });
+    const d2 = await api('/api/submit', {
+      method: 'POST',
+      body: { email: emailB, category: '玩法', title: titleDone, body: bodyDone },
+    });
+    const idDone = d1.json?.id;
+    const idDupDone = d2.json?.id;
+    check('已实现那组也提交成功', d1.status === 200 && d2.status === 200, `${d1.status}/${d2.status}`);
+
+    if (idDone) {
+      const ap = await api(`/api/admin/suggestions/${idDone}/approve`, { method: 'POST', cookie: adminCookie, csrf, body: {} });
+      const dn = await api(`/api/admin/suggestions/${idDone}/done`, { method: 'POST', cookie: adminCookie, csrf, body: {} });
+      check('把其中一条标记为已实现', ap.status === 200 && dn.status === 200, `${ap.status}/${dn.status}`);
+    }
+
+    const state = await api('/api/admin/ai/state', { cookie: adminCookie });
+    check('AI 状态接口可读', state.status === 200 && !!state.json?.provider, state.text.slice(0, 140));
+
+    // 部署到 Workers 上会用 Workers AI，本机 Node 没有绑定就是本地规则
+    const providerName = state.json?.provider?.name;
+    check(
+      '判定器可用（Workers AI 或本地规则）',
+      providerName === 'local' || providerName === 'workers-ai',
+      JSON.stringify(state.json?.provider)
+    );
+    check(
+      '相似度门槛跟随判定器默认值',
+      state.json?.provider?.retrieveMin === (providerName === 'local' ? 0.6 : 0.78),
+      `${providerName} → ${state.json?.provider?.retrieveMin}`
+    );
+
+    let last = null;
+    for (let i = 0; i < 20; i += 1) {
+      last = await api('/api/admin/ai/run', { method: 'POST', cookie: adminCookie, csrf, body: {} });
+      if (last.status !== 200 || !last.json?.scanned || !last.json?.remaining) break;
+    }
+    check('一键审核跑通', last?.status === 200, last?.text.slice(0, 200));
+
+    const item = async (id) => (await api(`/api/admin/suggestions/${id}`, { cookie: adminCookie })).json?.item;
+    const early = await item(idEarly);
+    const late = await item(idLate);
+    const dupDone = await item(idDupDone);
+
+    check('同标题重复：保留更早的那条', early?.status === 'pending', `status=${early?.status}`);
+    check('同标题重复：晚的那条被自动拒绝', late?.status === 'rejected', `status=${late?.status}`);
+    check('拒绝理由写给玩家看（重复）', /同一件事|重复/.test(late?.rejectReason || ''), late?.rejectReason);
+    check('与已实现重复的也被拒绝', dupDone?.status === 'rejected', `status=${dupDone?.status}`);
+    check('理由指向那条已实现的', /已经实现/.test(dupDone?.rejectReason || ''), dupDone?.rejectReason);
+
+    const report = await api(`/api/admin/ai/report?batch=${last?.json?.batchId}`, { cookie: adminCookie });
+    check('审核报告可读', report.status === 200 && !!report.json?.batch, report.text.slice(0, 140));
+
+    const applied = (report.json?.actions || []).filter((a) => a.status === 'applied');
+    check('报告里记录了自动处理的动作', applied.length >= 2, `applied=${applied.length}`);
+
+    const act = applied.find((a) => a.suggestionId === Number(idLate));
+    check('动作带上了依据（保留的是哪条）', act?.targetId === Number(idEarly), JSON.stringify(act || null));
+
+    if (act) {
+      const undo = await api('/api/admin/ai/undo', { method: 'POST', cookie: adminCookie, csrf, body: { actionId: act.id } });
+      check('单条撤销成功', undo.status === 200, undo.text.slice(0, 140));
+      const back = await item(idLate);
+      check('撤销后回到待审', back?.status === 'pending', `status=${back?.status}`);
+
+      const twice = await api('/api/admin/ai/undo', { method: 'POST', cookie: adminCookie, csrf, body: { actionId: act.id } });
+      check('重复撤销被挡住（409）', twice.status === 409, `status=${twice.status}`);
+    }
+
+    const undoAll = await api('/api/admin/ai/undo-batch', {
+      method: 'POST',
+      cookie: adminCookie,
+      csrf,
+      body: { batchId: last?.json?.batchId },
+    });
+    check('整轮撤销成功', undoAll.status === 200, undoAll.text.slice(0, 140));
+    const back2 = await item(idDupDone);
+    check('整轮撤销后另一条也回到待审', back2?.status === 'pending', `status=${back2?.status}`);
+  }
+
   /* ------------------------------ 登出 ------------------------------ */
 
-  section('13. 登出');
+  section('15. 登出');
   {
     const r = await api('/api/admin/logout', { method: 'POST', cookie: adminCookie, csrf, body: {} });
     check('登出成功', r.status === 200, r.text.slice(0, 120));

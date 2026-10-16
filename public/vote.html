@@ -16,6 +16,7 @@
   <div id="boot" hidden
        data-categories="{{categoriesJson}}"
        data-vote-open="{{voteOpen}}"
+       data-domains="{{emailDomainsText}}"
        data-rank-mode="{{voteRankMode}}"></div>
 
   <div id="closed-box" class="notice mb4" hidden>
@@ -42,6 +43,7 @@
       <span class="px-hint">
         不验证邮箱、不发邮件。填了就能投，但同一个邮箱对同一条建议只能投一次。
       </span>
+      <span class="px-hint" id="domain-hint" style="color:var(--c-gold)" hidden></span>
     </div>
 
     <div id="id-ready" class="identity" hidden>

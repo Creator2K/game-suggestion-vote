@@ -29,6 +29,7 @@ const APP_PATHS = new Set([
   '/admin/bans',
   '/admin/settings',
   '/admin/logs',
+  '/admin/ai',
 ]);
 
 function isAppPath(pathname) {

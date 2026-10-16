@@ -18,6 +18,7 @@
        data-categories="{{categoriesJson}}"
        data-max-title="{{maxTitleLen}}"
        data-max-body="{{maxBodyLen}}"
+       data-domains="{{emailDomainsText}}"
        data-submit-open="{{submitOpen}}"></div>
 
   <div id="closed-box" class="notice mb4" hidden>
@@ -45,6 +46,7 @@
           邮箱只用来识别身份和查询进度，不会发验证邮件，也不会公开显示。
           同一邮箱对同一条建议只能投一票。
         </span>
+        <span class="px-hint" id="domain-hint" style="color:var(--c-gold)" hidden></span>
 
         <label class="px-label mt4">
           <span>分类 <span class="px-label__req">*</span></span>
