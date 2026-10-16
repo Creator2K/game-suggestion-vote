@@ -22,6 +22,9 @@ services:
       # 备份保留份数
       # BACKUP_KEEP: "14"
 
+      # 忘记管理员密码时的自救令牌，设了才会开放 /api/admin/force-reset
+      # RESET_TOKEN: "换成一串长随机字符"
+
     volumes:
       # 数据库和上传的截图
       - ./data:/app/data
