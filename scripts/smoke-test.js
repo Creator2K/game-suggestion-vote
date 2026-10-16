@@ -198,7 +198,11 @@ async function main() {
   section('4. 后台登录');
   {
     const s = await api('/api/admin/state');
-    check('state 可读取', s.status === 200);
+    check(
+      'state 可读取且禁止缓存（no-store）',
+      s.status === 200 && /no-store/i.test(s.res.headers.get('cache-control') || ''),
+      `status=${s.status} cache-control=${s.res.headers.get('cache-control')}`
+    );
 
     if (!s.json?.initialized) {
       const r = await api('/api/admin/setup', {
@@ -589,20 +593,9 @@ async function main() {
     check('伪造图片（魔数不符）被拒（400）', fake.status === 400, `status=${fake.status}`);
   }
 
-  /* ------------------------------ 登出 ------------------------------ */
-
-  section('12. 登出');
-  {
-    const r = await api('/api/admin/logout', { method: 'POST', cookie: adminCookie, csrf, body: {} });
-    check('登出成功', r.status === 200, r.text.slice(0, 120));
-
-    const after = await api('/api/admin/dashboard', { cookie: adminCookie });
-    check('登出后会话失效（401）', after.status === 401, `status=${after.status}`);
-  }
-
   /* ------------------------------ 页面渲染 ------------------------------ */
 
-  section('13. 页面可达性');
+  section('12. 页面可达性');
   {
     const pages = [
       ['/', 'player', 'hero__title'],
@@ -623,7 +616,9 @@ async function main() {
     ];
 
     for (const [path, kind, marker] of pages) {
-      const res = await fetch(BASE + path);
+      // 后台页面要先登录才有内容，只有登录页是公开的
+      const needAuth = kind === 'admin' && path !== '/admin/login';
+      const res = await fetch(BASE + path, needAuth ? { headers: { cookie: adminCookie } } : undefined);
       const html = await res.text();
       const leftover = (html.match(/\{\{[^}]*\}\}/g) || []).length;
       const missingPartial = html.includes('缺少局部模板');
@@ -642,9 +637,27 @@ async function main() {
     }
 
     // 后台页面不该引到玩家端独有的脚本
-    const adminHtml = await (await fetch(BASE + '/admin')).text();
+    const adminHtml = await (await fetch(BASE + '/admin', { headers: { cookie: adminCookie } })).text();
     check('后台页引用了后台 JS', adminHtml.includes('/admin/js/admin.js'));
     check('后台页没有站点页脚', !adminHtml.includes('footer__inner'));
+  }
+
+  /* ------------------------------ 登出 ------------------------------ */
+
+  section('13. 登出');
+  {
+    const r = await api('/api/admin/logout', { method: 'POST', cookie: adminCookie, csrf, body: {} });
+    check('登出成功', r.status === 200, r.text.slice(0, 120));
+
+    // 登出后接口必须 401；后台页面本身也必须跳登录页，不能再把页面骨架发出去
+    const after = await api('/api/admin/dashboard', { cookie: adminCookie });
+    const gate = await fetch(BASE + '/admin/review', { redirect: 'manual' });
+    const loc = gate.headers.get('location') || '';
+    check(
+      '登出后接口 401 且后台页面跳登录页（302）',
+      after.status === 401 && (gate.status === 302 || gate.status === 303) && /\/admin\/login/.test(loc),
+      `api=${after.status} page=${gate.status} location=${loc}`
+    );
   }
 
   /* ------------------------------ 结果 ------------------------------ */

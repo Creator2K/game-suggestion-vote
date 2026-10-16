@@ -49,6 +49,9 @@ app.use((req, res, next) => {
       "form-action 'self'",
     ].join('; ')
   );
+  // 接口响应一律不许缓存。否则浏览器会把「已登录」的状态存下来，
+  // 之后页面就在「以为已登录」和「被服务端踢回登录页」之间来回跳。
+  if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   next();
 });
 
@@ -97,6 +100,19 @@ for (const [route, [file, extra]] of Object.entries(PLAYER_PAGES)) {
   app.get(route, page(file, extra));
 }
 
+/**
+ * 后台页面：除登录页外，没有有效会话的直接 302 到登录页。
+ * 只靠前端守卫的话，任何人打开 /admin 都能看到后台的页面骨架。
+ */
+function adminPage(relPath, extra = {}) {
+  const render = page(relPath, extra);
+  return (req, res, next) => {
+    if (relPath === 'admin/login.html') return render(req, res, next);
+    if (!req.admin) return res.redirect('/admin/login');
+    return render(req, res, next);
+  };
+}
+
 const ADMIN_PAGES = {
   '/admin': ['admin/index.html', { active: 'dash', pageTitle: '仪表盘' }],
   '/admin/login': ['admin/login.html', { active: '', pageTitle: '登录' }],
@@ -111,7 +127,7 @@ const ADMIN_PAGES = {
 };
 
 for (const [route, [file, extra]] of Object.entries(ADMIN_PAGES)) {
-  app.get(route, page(file, extra));
+  app.get(route, adminPage(file, extra));
 }
 
 /* ------------------------------ 接口 ------------------------------ */

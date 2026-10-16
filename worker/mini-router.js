@@ -156,6 +156,11 @@ function createResponse() {
       headers.set('Content-Type', CONTENT_TYPES[key] || String(t));
       return res;
     },
+    redirect(url, status) {
+      res.statusCode = Number(status) || 302;
+      headers.set('Location', String(url));
+      return res.end();
+    },
     json(obj) {
       if (!headers.has('Content-Type')) headers.set('Content-Type', CONTENT_TYPES.json);
       res.body = JSON.stringify(obj);

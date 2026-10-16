@@ -271,7 +271,13 @@
 
     let state;
     try {
-      state = await (await fetch('/api/admin/state', { credentials: 'same-origin' })).json();
+      // 必须绕开缓存：登录状态被缓存下来的话，页面会在"以为已登录"和
+      // "被服务端踢回登录页"之间来回跳。
+      const res = await fetch('/api/admin/state?_=' + Date.now(), {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      state = await res.json();
     } catch (e) {
       App.err('连不上服务器');
       return;
