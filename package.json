@@ -11,16 +11,13 @@
     "backup": "node scripts/backup.js",
     "reset-password": "node scripts/reset-password.js",
     "seed-demo": "node scripts/seed-demo.js",
-    "worker:dev": "wrangler dev",
-    "worker:deploy": "wrangler deploy"
+    "worker:dev": "npx wrangler dev",
+    "worker:deploy": "npx wrangler deploy"
   },
   "engines": {
     "node": ">=22.5.0"
   },
   "dependencies": {
     "express": "^4.21.2"
-  },
-  "devDependencies": {
-    "wrangler": "^4.151.0"
   }
 }

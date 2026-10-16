@@ -68,7 +68,7 @@ npx wrangler deploy
 
 部署完会给你一个 `https://<名字>.<你的子域>.workers.dev` 地址。绑自己的域名在 Cloudflare 后台 Workers 那一页加 Custom Domain。
 
-没装 wrangler 也能用上面的 `npx` 写法；`npm install` 之后可以直接 `npm run worker:deploy`。
+没装 wrangler 也没关系，`npx` 会临时取一份；也可以 `npm run worker:deploy`，效果一样。
 
 本机预览（不占线上资源，数据存在 `.wrangler/` 下）：
 
